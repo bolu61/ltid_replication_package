@@ -1,0 +1,371 @@
+#!/usr/bin/env -S python3 -u
+
+import argparse
+import codecs
+import csv
+from dataclasses import dataclass
+import functools
+import json
+from mmap import PROT_READ, mmap, ACCESS_READ
+from os import fsencode
+import re
+import sys
+from typing import (
+    IO,
+    Any,
+    BinaryIO,
+    ClassVar,
+    Dict,
+    Iterator,
+    List,
+    Mapping,
+    Match,
+    Optional,
+    OrderedDict,
+    Pattern,
+    Set,
+    TextIO,
+)
+
+
+def log(*message):
+    print(*message, file=sys.stderr)
+
+
+try:
+    import hyperscan as hs
+except ImportError:
+    log("installing hyperscan")
+    import subprocess
+
+    subprocess.run(
+        [sys.executable, "-m", "pip", "install", "hyperscan"], stdout=sys.stderr
+    )
+    try:
+        import hyperscan as hs
+    except ImportError:
+        log("installing hyperscan failed")
+        sys.exit(1)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="parse logs to events")
+    parser.add_argument(
+        "templates", type=argparse.FileType("r"), help="event templates in csv format"
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=argparse.FileType("w"),
+        default=sys.stdout,
+        help="output file (default: stdout)",
+    )
+    parser.add_argument(
+        "--variable-pattern",
+        "-p",
+        type=str,
+        default=r"{(\S+?)}",
+        help="variable pattern",
+    )
+
+    subparsers = parser.add_subparsers()
+
+    parse_subparser = subparsers.add_parser("parse")
+    parse_subparser.add_argument(
+        "--format", "-f", type=str, default=r"(.*)\n", help="log format"
+    )
+    parse_subparser.add_argument(
+        "logs",
+        nargs="?",
+        type=argparse.FileType("r"),
+        default=sys.stdin,
+        help="target log file (default: find the max)",
+    )
+    parse_subparser.set_defaults(command=parse)
+
+    stat_subparser = subparsers.add_parser("stat")
+    stat_subparser.add_argument("--variable-filters", type=str, default="")
+    stat_subparser.set_defaults(command=stat)
+
+    args = parser.parse_args()
+    args.command(args)
+
+
+def command(func):
+    def wrapped(args: argparse.Namespace):
+        registry = EventRegistry(
+            variable_pattern=re.compile(args.variable_pattern),
+        )
+
+        for row in csv.reader(args.templates):
+            registry.create(*row)
+
+        return func(registry=registry, **vars(args))
+
+    return wrapped
+
+
+@command
+def stat(registry: "EventRegistry", output, **_):
+    def acc(type: Optional["EventType"]):
+        if type is None:
+            return []
+        else:
+            return list(type.names) + acc(type.idom)
+
+    out = csv.writer(output)
+    for type in registry.types:
+        out.writerow(
+            [
+                type.idom.id if type.idom else "",
+                type.id,
+                list(type.names),
+                acc(type.idom),
+            ]
+        )
+
+
+
+
+@command
+def parse(registry: "EventRegistry", format: str, logs: TextIO, output: TextIO, **_):
+    buffer = ""
+    pattern = re.compile(format)
+    for line in logs:
+        buffer += line
+        if match := pattern.search(buffer.rstrip()):
+            values = registry.parse(" ".join(match.groups(default="")))
+            print(json.dumps(values), file=output)
+            buffer = ""
+
+
+class EventRegistry:
+    class InstanciationError(Exception):
+        pass
+
+    _flags: ClassVar[int] = hs.HS_FLAG_DOTALL | hs.HS_FLAG_UTF8 | hs.HS_FLAG_UCP
+
+    _variable_pattern: Pattern[str]
+    _templates: hs.Database
+    _require_compilation: bool
+    _types: Dict[int, "EventType"]
+
+    _history: List["Log"]
+    _last: Dict["EventType", "Log"]
+
+    _lookback: int
+    _top: int
+
+    def __init__(
+        self, variable_pattern: Pattern[str], encoding="utf-8", lookback=10, top=1
+    ) -> None:
+        self._variable_pattern = variable_pattern
+        self._templates = hs.Database()
+        self._require_compilation = False
+        self._types = OrderedDict()
+        self._history = []
+        self._last = {}
+        self._lookback = lookback
+        self._top = top
+
+    def get(self, id: int) -> "EventType":
+        return self._types[id]
+
+    @property
+    def types(self):
+        return self._types.values()
+
+    def create(
+        self, idom: str, idx: str, path: str, level: str, template: str
+    ) -> "EventType":
+        etype = EventType.create(
+            self,
+            int(idom) if idom != "" else None,
+            int(idx),
+            path,
+            level,
+            template.strip(),
+        )
+        self._types[etype.id] = etype
+        self._require_compilation = True
+
+        return etype
+
+    @functools.lru_cache
+    def findvalues(self, i: int, event: "Event") -> Set[str]:
+        values = set()
+        l = max(i - self._lookback, 0)
+        for j, previous_log in enumerate(self._history[l:i]):
+            idom = event.type.idom
+            if idom is not None and idom in previous_log:
+                values |= self.findvalues(l + j, previous_log[idom])
+        return values
+
+    def parse(self, message: str) -> Dict[int, List[str]]:
+        if self._require_compilation:
+            self.compile()
+
+        match_event_instances: List["Event"] = []
+
+        def on_match(id: int, *_) -> Optional[bool]:
+            etype = self.get(id)
+            if (event := Event.create(etype, message)) is not None:
+                match_event_instances.append(event)
+            return False
+
+        self._templates.scan(message.encode('utf-8'), match_event_handler=on_match)
+
+        match_event_instances.sort(key=lambda e: 1 - e.score)
+
+        log = Log(message, {i.type: i for i in match_event_instances[: self._top]})
+
+        self._history.append(log)
+
+        values: Dict[int, List[str]] = {}
+        for event in log.events:
+            values[event.type.id] = [*self.findvalues(len(self._history) - 1, event)]
+        return values
+
+    def compile(self):
+        expressions, ids, flags = zip(
+            *(
+                (e.pattern.encode('utf-8'), e.id, self._flags)
+                for e in self._types.values()
+                if e.pattern is not None
+            )
+        )
+        self._templates.compile(expressions=expressions, ids=ids, flags=flags)
+        self._require_compilation = False
+
+    def _build_regex(self, template: str) -> str:
+        pieces: List[str] = []
+        buffer = template.replace(r"\n", "\n")
+        while match := re.search(self._variable_pattern, buffer):
+            pieces.append(re.escape(buffer[: match.start()].strip()))
+            pieces.append("".join([r"(?P<", *match.groups(default=""), r">.*)"]))
+            buffer = buffer[match.end() :]
+        pieces.append(re.escape(buffer))
+
+        return r"\s*".join([r"^", *pieces, r"$"])
+
+
+class EventType:
+    class InstanciationError(Exception):
+        pass
+
+    _registry: EventRegistry
+    _pattern: Pattern[str]
+    _idom: Optional[int]
+    id: int
+    path: str
+    level: str
+    template: str
+
+    @classmethod
+    def create(
+        cls,
+        registry: EventRegistry,
+        idom: Optional[int],
+        id: int,
+        path: str,
+        level: str,
+        template: str,
+    ) -> "EventType":
+        pattern = registry._build_regex(template)
+
+        self = cls()
+        self._registry = registry
+        self._pattern = re.compile(pattern)
+        self._idom = idom
+        self.id = id
+        self.path = path
+        self.level = level
+        self.template = template
+        return self
+
+    def __repr__(self):
+        return f'<event {self.id} {self.level}: "{self.template}">'
+
+    def match(self, string: str) -> Optional[Match[str]]:
+        return self._pattern.match(string)
+
+    @property
+    def registry(self):
+        return self._registry
+
+    @property
+    def pattern(self) -> str:
+        return self._pattern.pattern
+
+    @property
+    def names(self):
+        return self._pattern.groupindex.keys()
+
+    @property
+    def idom(self) -> Optional["EventType"]:
+        return self._registry.get(self._idom) if self._idom else None
+
+
+@dataclass(frozen=True, eq=False)
+class Event(Mapping[str, str]):
+    type: EventType
+    namespace: Dict[str, str]
+    score: float
+
+    @classmethod
+    def create(cls, type: EventType, message: str) -> Optional["Event"]:
+        if (match := type.match(message)) is None:
+            return None
+        namespace = match.groupdict()
+        score = (len(message) - sum(len(group) for group in namespace.values())) / len(
+            message
+        )
+        return cls(type, namespace, score)
+
+    def __getitem__(self, key: str) -> Any:
+        return self.namespace[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.namespace)
+
+    def __len__(self) -> int:
+        return len(self.namespace)
+
+    def __repr__(self):
+        return f'<event {self.type.id} {self.type.level}: "{self.type.pattern}" {json.dumps(self._namespace)}>'
+
+    def __hash__(self):
+        return id(self)
+
+
+@dataclass
+class Log(Mapping[EventType, Event]):
+    message: str
+    _events: Dict["EventType", "Event"]
+
+    def __getitem__(self, type: EventType):
+        return self._events[type]
+
+    def __iter__(self):
+        return iter(self._events)
+
+    def __len__(self):
+        return len(self._events)
+
+    def __contains__(self, o: object) -> bool:
+        return o in self._events
+
+    @property
+    def events(self):
+        return set(self._events.values())
+
+    @property
+    def types(self):
+        return set(self._events.keys())
+
+    @property
+    def idoms(self):
+        return {t.idom for t in self.events}
+
+if __name__ == "__main__":
+    main()

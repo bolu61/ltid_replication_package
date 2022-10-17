@@ -1,0 +1,5 @@
+cffi==1.15.1
+lxml==4.9.2
+pycparser==2.21
+pygit2==1.11.1
+tqdm==4.64.1

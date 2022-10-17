@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<grammar xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes" ns="http://www.srcML.org/srcML/src">
+  <start>
+    <element name="call">
+      <element name="name">
+        <zeroOrMore>
+          <element name="name">
+            <data type="string">
+              <param name="pattern">.*[Ll][Oo][Gg].*</param>
+            </data>
+          </element>
+          <element name="operator">
+            <value>.</value>
+          </element>
+        </zeroOrMore>
+        <element name="name">
+          <choice>
+            <value>log</value>
+            <value>fatal</value>
+            <value>error</value>
+            <value>warning</value>
+            <value>info</value>
+            <value>debug</value>
+            <value>trace</value>
+          </choice>
+        </element>
+      </element>
+      <element name="argument_list">
+        <mixed>
+          <oneOrMore>
+            <element name="argument">
+              <ref name="any" />
+            </element>
+          </oneOrMore>
+        </mixed>
+      </element>
+    </element>
+  </start>
+
+  <define name="any">
+    <element>
+      <anyName />
+      <zeroOrMore>
+        <choice>
+          <attribute>
+            <anyName />
+          </attribute>
+          <text />
+          <ref name="any" />
+        </choice>
+      </zeroOrMore>
+    </element>
+  </define>
+</grammar>
