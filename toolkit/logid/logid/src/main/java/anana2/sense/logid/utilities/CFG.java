@@ -9,15 +9,15 @@ import org.slf4j.LoggerFactory;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
+import anana2.sense.intgraph.FlowGraph;
+import anana2.sense.intgraph.ParentTree;
+import anana2.sense.intgraph.algo.DominatorTrees;
 import fr.inria.controlflow.BranchKind;
 import fr.inria.controlflow.ControlFlowBuilder;
 import fr.inria.controlflow.ControlFlowGraph;
 import fr.inria.controlflow.ControlFlowNode;
 import fr.inria.controlflow.NaiveExceptionControlFlowStrategy;
 import fr.inria.controlflow.NotFoundException;
-import fxf.anana2.intgraph.FlowGraph;
-import fxf.anana2.intgraph.ParentTree;
-import fxf.anana2.intgraph.algo.DominatorTrees;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
 
