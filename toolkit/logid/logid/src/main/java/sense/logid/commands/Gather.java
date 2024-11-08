@@ -1,4 +1,4 @@
-package sense.logid;
+package sense.logid.commands;
 
 import java.io.Flushable;
 import java.io.IOException;

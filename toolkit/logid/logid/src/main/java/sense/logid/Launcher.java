@@ -11,6 +11,8 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 import picocli.CommandLine.Model.CommandSpec;
+import sense.logid.commands.Gather;
+import sense.logid.commands.Injections;
 
 @Command(name = "logid", mixinStandardHelpOptions = true)
 public class Launcher {

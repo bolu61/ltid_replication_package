@@ -1,4 +1,4 @@
-package sense.logid;
+package sense.logid.commands;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -15,6 +15,8 @@ import org.slf4j.LoggerFactory;
 
 import com.opencsv.CSVWriter;
 
+import sense.logid.Environment;
+import sense.logid.Variable;
 import sense.logid.events.LogEvent;
 import sense.logid.events.factory.LogEventFactory;
 import sense.logid.fragments.ElementLocator;
@@ -27,7 +29,7 @@ public class Injections {
     private Injections() {
     }
 
-    static void execute(Writer out, Environment env, Optional<String[]> ids) {
+    public static void execute(Writer out, Environment env, Optional<String[]> ids) {
         var model = env.model();
         var printer = new CSVWriter(out);
         var factory = new LogEventFactory();
