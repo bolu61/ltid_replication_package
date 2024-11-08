@@ -164,20 +164,19 @@ public class LogEventFactory {
     }
 
     private Optional<LogEvent> dominator(CtElement element) {
-        Optional<LogEvent> dominator = Optional.empty();
         CtExecutable<?> executable = element.getParent(CtExecutable.class);
         // the log can be stated in a static initializer / implicit constructor
-        if (executable != null) {
-            DominatorControlFlowGraph graph = graphFactory.get(executable);
-            // find youngest dominator that is an event
-            for (CtElement dominating_element : graph.dominators(element)) {
-                dominator = get(dominating_element);
-                if (dominator.isPresent()) {
-                    break;
-                }
+        if (executable == null) {
+            return Optional.empty();
+        }
+        // find youngest dominator that is an event
+        DominatorControlFlowGraph graph = graphFactory.get(executable);
+        for (CtElement dominating_element : graph.dominators(element)) {
+            Optional<LogEvent> dominator = get(dominating_element);
+            if (dominator.isPresent()) {
+                return dominator;
             }
         }
-
-        return dominator;
+        return Optional.empty();
     }
 }
