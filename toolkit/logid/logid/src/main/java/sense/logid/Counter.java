@@ -1,4 +1,4 @@
-package sense.logid.utilities;
+package sense.logid;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;

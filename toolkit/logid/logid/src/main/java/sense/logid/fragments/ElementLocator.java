@@ -1,15 +1,13 @@
-package sense.logid.utilities.source;
-
-import java.util.NoSuchElementException;
+package sense.logid.fragments;
 
 import spoon.reflect.declaration.CtElement;
 
-public class ElementSniper {
+public class ElementLocator {
     private final CtElement root;
     private final Fragment head;
     private final String source;
 
-    public ElementSniper(CtElement element) {
+    public ElementLocator(CtElement element) {
         this.root = element;
         this.source = element.getPosition().getCompilationUnit().getOriginalSourceCode();
         this.head = new Fragment(source);
@@ -19,11 +17,11 @@ public class ElementSniper {
         return source;
     }
 
-    public FragmentList snipe() {
+    public FragmentList locate() {
         return new FragmentList(head, null);
     }
 
-    public FragmentList snipe(CtElement element) {
+    public FragmentList locate(CtElement element) {
         if (!element.hasParent(root) && !element.equals(root)) {
             throw new MissedSnipeException(element);
         }
@@ -32,11 +30,11 @@ public class ElementSniper {
         var start = pos.getSourceStart();
         var end = pos.getSourceEnd() + 1;
         
-        var offset = snipe(start);
+        var offset = locate(start);
         return offset.range(offset.range(null).at(end - start));
     }
 
-    private Fragment snipe(int index) {
+    private Fragment locate(int index) {
         for (var piece : head.source(null)) {
             if (index == 0) {
                 return piece;
@@ -63,8 +61,8 @@ public class ElementSniper {
             return element;
         }
 
-        public ElementSniper sniper() {
-            return ElementSniper.this;
+        public ElementLocator locate() {
+            return ElementLocator.this;
         }
     }
 }

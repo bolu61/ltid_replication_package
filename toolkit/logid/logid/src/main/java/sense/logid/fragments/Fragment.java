@@ -1,7 +1,7 @@
 /**
  * singly inked list of code fragments
  */
-package sense.logid.utilities.source;
+package sense.logid.fragments;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;

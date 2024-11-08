@@ -15,10 +15,10 @@ import org.slf4j.LoggerFactory;
 
 import com.opencsv.CSVWriter;
 
-import sense.logid.event.LogEvent;
-import sense.logid.event.factory.LogEventFactory;
-import sense.logid.utilities.source.ElementSniper;
-import sense.logid.utilities.source.FragmentList;
+import sense.logid.events.LogEvent;
+import sense.logid.events.factory.LogEventFactory;
+import sense.logid.fragments.ElementLocator;
+import sense.logid.fragments.FragmentList;
 import spoon.reflect.declaration.CtExecutable;
 
 public class Injections {
@@ -45,81 +45,79 @@ public class Injections {
         StreamSupport.stream(model.getRootPackage().asIterable().spliterator(), false)
                 .filter(e -> e instanceof CtExecutable<?>)
                 .forEach(executable -> {
-                    factory.stream(executable)
-                            .forEach(event -> {
+                    factory.stream(executable).forEach(event -> {
+                        if (logger.isTraceEnabled()) {
+                            logger.trace("Found event {}.", event);
+                        }
 
-                                if (logger.isTraceEnabled()) {
-                                    logger.trace("Found event {}.", event.toString());
-                                }
+                        if (event.dominator().isEmpty()) {
+                            if (logger.isTraceEnabled()) {
+                                logger.trace("No dominator found for event {}.", event);
+                            }
+                            return;
+                        }
 
-                                if (event.dominator().isEmpty()) {
-                                    if (logger.isTraceEnabled()) {
-                                        logger.trace("No dominator found for event {}.", event.toString());
-                                    }
-                                    return;
-                                }
+                        var dominator = event.dominator();
+                        var acc = acc(dominator.get());
+                        if (shouldFilter) {
+                            acc = acc.filter(variable -> idx.contains(variable.name()));
+                        }
 
-                                var dominator = event.dominator();
-                                var acc = acc(dominator.get());
-                                if (shouldFilter) {
-                                    acc = acc.filter(variable -> idx.contains(variable.name()));
-                                }
+                        var variables = new HashSet<>(event.variables());
 
-                                var variables = new HashSet<>(event.variables());
+                        acc = acc.filter(variable -> !variables.contains(variable));
 
-                                acc = acc.filter(variable -> !variables.contains(variable));
+                        var injected = acc.toList();
 
-                                var injected = acc.toList();
+                        if (injected.isEmpty()) {
+                            if (logger.isTraceEnabled()) {
+                                logger.trace("No injected variable found for event {}.", event);
+                            }
+                            return;
+                        }
 
-                                if (injected.isEmpty()) {
-                                    if (logger.isTraceEnabled()) {
-                                        logger.trace("No injected variable found for event {}.", event.toString());
-                                    }
-                                    return;
-                                }
+                        var element = event.element();
 
-                                var element = event.element();
+                        var sniper = new ElementLocator(executable);
 
-                                var sniper = new ElementSniper(executable);
+                        var fragment = blockresize(sniper.locate(), sniper.locate(executable));
 
-                                var fragment = blockresize(sniper.snipe(), sniper.snipe(executable));
+                        var lines = fragment.split(System.lineSeparator());
 
-                                var lines = fragment.split(System.lineSeparator());
+                        var indentation = lines.stream().flatMap(piece -> {
+                            var line = piece.toString();
+                            var i = indentation(line);
+                            if (line.length() == i) {
+                                return Stream.empty();
+                            }
+                            return Stream.of(i);
+                        }).min(Comparator.naturalOrder()).orElse(0);
 
-                                var indentation = lines.stream().flatMap(piece -> {
-                                    var line = piece.toString();
-                                    var i = indentation(line);
-                                    if (line.length() == i) {
-                                        return Stream.empty();
-                                    }
-                                    return Stream.of(i);
-                                }).min(Comparator.naturalOrder()).orElse(0);
+                        lines.forEach(piece -> {
+                            piece.delete(piece.head(), indentation);
+                        });
 
-                                lines.forEach(piece -> {
-                                    piece.delete(piece.head(), indentation);
-                                });
+                        // build log id injection comments
+                        var msg = new StringBuilder();
+                        msg.append(String.format("/* #LOG %s %s%n", event.level(), event.template()));
+                        msg.append(" *" + System.lineSeparator());
+                        for (var variable : injected) {
+                            msg.append(String.format(" * %s: %s%n", variable.name(),
+                                    sniper.locate(variable.element()).toString()));
+                        }
+                        msg.append(" */");
 
-                                // build log id injection comments
-                                var msg = new StringBuilder();
-                                msg.append(String.format("/* #LOG %s %s%n", event.level(), event.template()));
-                                msg.append(" *" + System.lineSeparator());
-                                for (var variable : injected) {
-                                    msg.append(String.format(" * %s: %s%n", variable.name(),
-                                            sniper.snipe(variable.element()).toString()));
-                                }
-                                msg.append(" */");
+                        comment(blockresize(fragment, sniper.locate(element)), msg.toString());
+                        while (dominator.isPresent()) {
+                            comment(blockresize(fragment, sniper.locate(dominator.get().element())),
+                                    "// #LOG ASSOCIATE");
+                            dominator = dominator.get().dominator();
+                        }
 
-                                comment(blockresize(fragment, sniper.snipe(element)), msg.toString());
-                                while (dominator.isPresent()) {
-                                    comment(blockresize(fragment, sniper.snipe(dominator.get().element())),
-                                            "// #LOG ASSOCIATE");
-                                    dominator = dominator.get().dominator();
-                                }
-
-                                printer.writeNext(new String[] {
-                                        fragment.toString()
-                                });
-                            });
+                        printer.writeNext(new String[] {
+                                fragment.toString()
+                        });
+                    });
                 });
         try {
             printer.close();

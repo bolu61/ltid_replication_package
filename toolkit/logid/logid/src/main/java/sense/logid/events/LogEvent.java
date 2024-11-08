@@ -1,4 +1,4 @@
-package sense.logid.event;
+package sense.logid.events;
 
 import java.util.Collection;
 import java.util.Optional;

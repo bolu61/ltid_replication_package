@@ -1,7 +1,8 @@
-package sense.logid.utilities;
+package sense.logid;
 
 import java.util.EnumSet;
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,34 +16,33 @@ import fr.inria.controlflow.ControlFlowGraph;
 import fr.inria.controlflow.ControlFlowNode;
 import fr.inria.controlflow.NaiveExceptionControlFlowStrategy;
 import fr.inria.controlflow.NotFoundException;
-import sense.intgraph.FlowGraph;
-import sense.intgraph.ParentTree;
-import sense.intgraph.algo.DominatorTrees;
+import sense.logid.dominators.DominatorTree;
+import sense.logid.dominators.ForwardFlowGraph;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
 
-public class CFG implements FlowGraph {
-    Logger logger = LoggerFactory.getLogger(CFG.class);
+public class DominatorControlFlowGraph implements ForwardFlowGraph {
+    Logger logger = LoggerFactory.getLogger(DominatorControlFlowGraph.class);
 
     public static class Factory {
-        private Cache<CtExecutable<?>, CFG> cache = Caffeine.newBuilder()
+        private Cache<CtExecutable<?>, DominatorControlFlowGraph> cache = Caffeine.newBuilder()
                 .weakKeys()
                 .softValues()
                 .build();
 
-        public CFG get(CtExecutable<?> executable) {
-            return cache.get(executable, CFG::of);
+        public DominatorControlFlowGraph get(CtExecutable<?> executable) {
+            return cache.get(executable, DominatorControlFlowGraph::of);
         }
     }
 
     private final ControlFlowGraph graph;
-    private ParentTree tree;
+    private DominatorTree tree;
 
-    private CFG(ControlFlowGraph graph) {
+    private DominatorControlFlowGraph(ControlFlowGraph graph) {
         this.graph = graph;
     }
 
-    public static CFG of(CtExecutable<?> method) {
+    public static DominatorControlFlowGraph of(CtExecutable<?> method) {
         ControlFlowBuilder builder = new ControlFlowBuilder();
 
         EnumSet<NaiveExceptionControlFlowStrategy.Options> options;
@@ -50,7 +50,7 @@ public class CFG implements FlowGraph {
 
         builder.setExceptionControlFlowStrategy(new NaiveExceptionControlFlowStrategy(options));
         ControlFlowGraph graph = builder.build(method);
-        return new CFG(graph);
+        return new DominatorControlFlowGraph(graph);
     }
 
     @Override
@@ -72,7 +72,7 @@ public class CFG implements FlowGraph {
 
     CtElement idom(CtElement element) {
         if (tree == null) {
-            tree = DominatorTrees.snca(this);
+            tree = DominatorTree.snca(this);
         }
 
         ControlFlowNode out;
@@ -113,22 +113,25 @@ public class CFG implements FlowGraph {
             current = element;
             next = null;
         }
+        
+        private CtElement getNext() {
+            if (next == null) {
+                next = idom(current);
+            }
+            return next;
+        }
 
         @Override
         public boolean hasNext() {
-            next = idom(current);
-            return next != null;
+            return getNext() != null;
         }
 
         @Override
         public CtElement next() {
-            if (next == null) {
-                next = idom(current);
+            current = getNext();
+            if (current == null) {
+                throw new NoSuchElementException();
             }
-            if (next == null) {
-                throw new IllegalStateException();
-            }
-            current = next;
             next = null;
             return current;
         }

@@ -4,19 +4,16 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
-import java.util.List;
 import java.util.Optional;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.ITypeConverter;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 import picocli.CommandLine.Model.CommandSpec;
 
 @Command(name = "logid", mixinStandardHelpOptions = true)
-class Launcher {
+public class Launcher {
     public static void main(String... argv) {
         System.exit(new CommandLine(new Launcher()).execute(argv));
     }

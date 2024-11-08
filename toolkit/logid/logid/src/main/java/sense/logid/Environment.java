@@ -7,7 +7,6 @@ import spoon.Launcher;
 import spoon.MavenLauncher;
 import spoon.compiler.Environment.PRETTY_PRINTING_MODE;
 import spoon.reflect.CtModel;
-import spoon.reflect.visitor.PrettyPrinter;
 import spoon.support.sniper.SniperJavaPrettyPrinter;
 
 public class Environment {

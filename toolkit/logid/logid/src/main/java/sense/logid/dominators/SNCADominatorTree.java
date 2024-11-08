@@ -1,4 +1,4 @@
-package sense.intgraph.algo;
+package sense.logid.dominators;
 
 import java.util.stream.Collectors;
 
@@ -8,11 +8,9 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.ints.IntStack;
-import sense.intgraph.FlowGraph;
-import sense.intgraph.ParentTree;
 
-class SNCADominatorTree implements ParentTree {
-    private final FlowGraph graph;
+class SNCADominatorTree implements DominatorTree {
+    private final ForwardFlowGraph graph;
     private int[] idom;
     private int[] ancestor;
     private int[] semi;
@@ -21,13 +19,13 @@ class SNCADominatorTree implements ParentTree {
     private Int2IntMap vertex;
     private IntSet[] pred;
 
-    public static SNCADominatorTree from(FlowGraph graph) {
+    public static SNCADominatorTree from(ForwardFlowGraph graph) {
         var tree = new SNCADominatorTree(graph);
         tree.build();
         return tree;
     }
 
-    SNCADominatorTree(FlowGraph graph) {
+    SNCADominatorTree(ForwardFlowGraph graph) {
         this.graph = graph;
         this.idom = new int[graph.size()];
         this.ancestor = new int[graph.size()];

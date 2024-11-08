@@ -1,4 +1,4 @@
-package sense.logid.event.factory;
+package sense.logid.events.factory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -83,7 +83,7 @@ class TemplateFactory {
     }
 
     private String name(CtElement element) {
-        // todo put implementation here
+        // remove repeated substrings of length 2 or more
         return collect(element).replaceAll("(.{2,})(?:\\1)+", "$1");
     }
 
@@ -182,7 +182,7 @@ class TemplateFactory {
 
             if (variable != null && variable.isFinal() && variable.getType() != null && variable.getType().getQualifiedName().equals(STRING_TYPE)) {
                 CtExpression<?> defaultExpression = variable.getDefaultExpression();
-                if (defaultExpression != null && defaultExpression instanceof CtLiteral<?>) {
+                if (defaultExpression instanceof CtLiteral<?>) {
                     Object object = ((CtLiteral<?>) defaultExpression).getValue();
                     if (object == null) {
                       return "null";

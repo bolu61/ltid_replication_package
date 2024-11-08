@@ -4,19 +4,13 @@ import java.io.Flushable;
 import java.io.IOException;
 import java.io.Writer;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.opencsv.CSVWriter;
 
-import sense.logid.event.LogEvent;
-import sense.logid.event.factory.LogEventFactory;
+import sense.logid.events.LogEvent;
+import sense.logid.events.factory.LogEventFactory;
 import spoon.reflect.CtModel;
 
 public class Gather {
-
-    private static final Logger logger = LoggerFactory.getLogger(Gather.class);
-
     static class GatherException extends RuntimeException {
         private GatherException(Throwable cause) {
             super(cause);
