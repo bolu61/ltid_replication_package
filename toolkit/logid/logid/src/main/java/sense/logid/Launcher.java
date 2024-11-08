@@ -42,7 +42,6 @@ public class Launcher {
             Injections.execute(out(), env, Optional.of(parsed));
         } else {
             Injections.execute(out(), env, Optional.empty());
-
         }
     }
 }
