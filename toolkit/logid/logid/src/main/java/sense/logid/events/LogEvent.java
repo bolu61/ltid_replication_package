@@ -19,7 +19,7 @@ public interface LogEvent {
 
     CtElement element();
 
-    Optional<CtPath> path();
+    CtPath path();
 
     Level level();
 

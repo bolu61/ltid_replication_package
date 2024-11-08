@@ -25,7 +25,6 @@ import spoon.reflect.code.CtInvocation;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.path.CtPath;
-import spoon.reflect.path.CtPathException;
 
 public class LogEventFactory {
     private static final Logger logger = LoggerFactory.getLogger(LogEventFactory.class);
@@ -134,12 +133,8 @@ public class LogEventFactory {
                 }
 
                 @Override
-                public Optional<CtPath> path() {
-                    try {
-                        return Optional.of(element.getPath());
-                    } catch (CtPathException e) {
-                        return Optional.empty();
-                    }
+                public CtPath path() {
+                    return element.getPath();
                 }
 
                 @Override
