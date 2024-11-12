@@ -64,17 +64,8 @@ def logid(path: Path, command: str, *args: str, launcher: str = "file"):
         text=True,
         cwd=LOGID_JAVA_SOURCEPATH,
     )
-    if result.returncode == 1:
+    if result.returncode != 0:
         raise LogidExecutionError(
-            {
-                "command": result.args,
-                "returncode": result.returncode,
-                "message": result.stderr,
-                "output": result.stdout,
-            }
-        )
-    elif result.returncode > 1:
-        raise Exception(
             {
                 "command": result.args,
                 "returncode": result.returncode,
