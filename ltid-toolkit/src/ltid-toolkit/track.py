@@ -17,7 +17,7 @@ from pygit2 import (
 )
 
 from .parse import Parser
-from ..query import extractid, extractlog
+from .query import extractid, extractlog
 
 WALK_ORDER = GIT_SORT_REVERSE | GIT_SORT_TOPOLOGICAL | GIT_SORT_TIME
 
