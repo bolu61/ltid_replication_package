@@ -1,9 +1,14 @@
 [build-system]
-requires = ["hatchling",]
+requires = ["hatchling","hatch-build-scripts"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ltid_replication_package_lib"
-version = "0.1.0"
+name = "ltid-toolkit"
+version = "0.3.0"
 authors = [{ name = "bolu61", email = "bolu61@zjc.dev" }]
 dependencies = ["lxml", "pygit2"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ltid_toolkit"]
+
+[tool.hatch.build.hooks.custom]
