@@ -9,9 +9,7 @@ from typing import Dict, Iterable, List
 
 _TEMPLATE_VAR_REGEX = re.compile(r"\{(\w*)\}")
 
-LTID_LOG_GRAPH_CLASSPATH = os.pathsep.join(
-    str(p) for p in (resources.files(__package__) / "include").iterdir()
-)
+LTID_LOG_GRAPH_CLASSPATH = resources.files(__package__) / "include" / "*"
 
 
 def gather(path: Path, launcher: str = "file") -> Iterable["LogType"]:
