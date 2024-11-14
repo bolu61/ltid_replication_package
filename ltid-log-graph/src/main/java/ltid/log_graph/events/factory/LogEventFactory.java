@@ -1,4 +1,4 @@
-package sense.ltid_log_graph.events.factory;
+package ltid.log_graph.events.factory;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -15,11 +15,11 @@ import org.slf4j.LoggerFactory;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
-import sense.ltid_log_graph.Counter;
-import sense.ltid_log_graph.DominatorControlFlowGraph;
-import sense.ltid_log_graph.Variable;
-import sense.ltid_log_graph.events.LogEvent;
-import sense.ltid_log_graph.events.LogEvent.Level;
+import ltid.log_graph.Counter;
+import ltid.log_graph.DominatorControlFlowGraph;
+import ltid.log_graph.Variable;
+import ltid.log_graph.events.LogEvent;
+import ltid.log_graph.events.LogEvent.Level;
 import spoon.reflect.code.CtExpression;
 import spoon.reflect.code.CtInvocation;
 import spoon.reflect.declaration.CtElement;

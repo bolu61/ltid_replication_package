@@ -1,4 +1,4 @@
-package sense.ltid_log_graph.commands;
+package ltid.log_graph.commands;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -15,12 +15,12 @@ import org.slf4j.LoggerFactory;
 
 import com.opencsv.CSVWriter;
 
-import sense.ltid_log_graph.Environment;
-import sense.ltid_log_graph.Variable;
-import sense.ltid_log_graph.events.LogEvent;
-import sense.ltid_log_graph.events.factory.LogEventFactory;
-import sense.ltid_log_graph.fragments.ElementLocator;
-import sense.ltid_log_graph.fragments.FragmentList;
+import ltid.log_graph.Environment;
+import ltid.log_graph.Variable;
+import ltid.log_graph.events.LogEvent;
+import ltid.log_graph.events.factory.LogEventFactory;
+import ltid.log_graph.fragments.ElementLocator;
+import ltid.log_graph.fragments.FragmentList;
 import spoon.reflect.declaration.CtExecutable;
 
 public class Injections {

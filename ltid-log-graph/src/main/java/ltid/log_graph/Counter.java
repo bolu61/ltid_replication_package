@@ -1,4 +1,4 @@
-package sense.ltid_log_graph;
+package ltid.log_graph;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;

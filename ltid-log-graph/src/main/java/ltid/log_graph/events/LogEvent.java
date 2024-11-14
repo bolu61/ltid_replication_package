@@ -1,9 +1,9 @@
-package sense.ltid_log_graph.events;
+package ltid.log_graph.events;
 
 import java.util.Collection;
 import java.util.Optional;
 
-import sense.ltid_log_graph.Variable;
+import ltid.log_graph.Variable;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.path.CtPath;
 

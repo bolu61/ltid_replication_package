@@ -1,4 +1,4 @@
-package sense.ltid_log_graph.commands;
+package ltid.log_graph.commands;
 
 import java.io.Flushable;
 import java.io.IOException;
@@ -6,8 +6,8 @@ import java.io.Writer;
 
 import com.opencsv.CSVWriter;
 
-import sense.ltid_log_graph.events.LogEvent;
-import sense.ltid_log_graph.events.factory.LogEventFactory;
+import ltid.log_graph.events.LogEvent;
+import ltid.log_graph.events.factory.LogEventFactory;
 import spoon.reflect.CtModel;
 
 public class Gather {

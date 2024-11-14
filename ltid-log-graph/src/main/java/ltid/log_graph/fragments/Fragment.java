@@ -1,7 +1,7 @@
 /**
  * singly inked list of code fragments
  */
-package sense.ltid_log_graph.fragments;
+package ltid.log_graph.fragments;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;

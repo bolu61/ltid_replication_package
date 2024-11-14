@@ -1,4 +1,4 @@
-package sense.ltid_log_graph;
+package ltid.log_graph;
 
 import java.io.File;
 import java.io.IOException;
@@ -6,13 +6,13 @@ import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.util.Optional;
 
+import ltid.log_graph.commands.Gather;
+import ltid.log_graph.commands.Injections;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 import picocli.CommandLine.Model.CommandSpec;
-import sense.ltid_log_graph.commands.Gather;
-import sense.ltid_log_graph.commands.Injections;
 
 @Command(name = "logid", mixinStandardHelpOptions = true)
 public class Launcher {

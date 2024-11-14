@@ -1,4 +1,4 @@
-package sense.ltid_log_graph.events.factory;
+package ltid.log_graph.events.factory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import sense.ltid_log_graph.Variable;
+import ltid.log_graph.Variable;
 import spoon.reflect.code.BinaryOperatorKind;
 import spoon.reflect.code.CtBinaryOperator;
 import spoon.reflect.code.CtExpression;

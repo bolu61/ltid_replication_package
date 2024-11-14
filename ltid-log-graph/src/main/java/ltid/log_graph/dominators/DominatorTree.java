@@ -1,4 +1,4 @@
-package sense.ltid_log_graph.dominators;
+package ltid.log_graph.dominators;
 
 public interface DominatorTree {
     int size();

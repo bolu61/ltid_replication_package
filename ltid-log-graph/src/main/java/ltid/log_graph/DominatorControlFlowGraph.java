@@ -1,4 +1,4 @@
-package sense.ltid_log_graph;
+package ltid.log_graph;
 
 import java.util.EnumSet;
 import java.util.Iterator;
@@ -16,8 +16,8 @@ import fr.inria.controlflow.ControlFlowGraph;
 import fr.inria.controlflow.ControlFlowNode;
 import fr.inria.controlflow.NaiveExceptionControlFlowStrategy;
 import fr.inria.controlflow.NotFoundException;
-import sense.ltid_log_graph.dominators.DominatorTree;
-import sense.ltid_log_graph.dominators.ForwardFlowGraph;
+import ltid.log_graph.dominators.DominatorTree;
+import ltid.log_graph.dominators.ForwardFlowGraph;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
 

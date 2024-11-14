@@ -1,4 +1,4 @@
-package sense.ltid_log_graph.fragments;
+package ltid.log_graph.fragments;
 
 import spoon.reflect.declaration.CtElement;
 
