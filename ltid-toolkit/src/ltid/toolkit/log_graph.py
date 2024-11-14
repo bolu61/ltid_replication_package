@@ -42,7 +42,10 @@ def _run_log_graph(path: Path, command: str, *args: str, launcher: str = "file")
                 "returncode": result.returncode,
                 "message": result.stderr,
                 "output": result.stdout,
+<<<<<<< Updated upstream:ltid-toolkit/src/ltid_toolkit/log_graph.py
                 "classpath": LTID_LOG_GRAPH_CLASSPATH,
+=======
+>>>>>>> Stashed changes:toolkit/logid/__init__.py
             }
         )
     return result.stdout
