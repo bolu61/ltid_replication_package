@@ -8,7 +8,7 @@ from typing import Annotated, Iterable
 
 _TEMPLATE_VAR_REGEX = re.compile(r"\{(\w*)\}")
 
-LTID_LOG_GRAPH_CLASSPATH = resources.files(__package__.split(".")[0]) / "include" / "*"
+LTID_LOG_GRAPH_CLASSPATH = resources.files((__package__ or "__main__").split(".")[0]) / "include" / "*"
 
 
 def gather(path: Path, launcher: str = "file") -> Iterable["LogType"]:
@@ -23,7 +23,7 @@ def _run_log_graph(path: Path, command: str, *args: str, launcher: str = "file")
         [
             "java",
             "-cp",
-            LTID_LOG_GRAPH_CLASSPATH,
+            str(LTID_LOG_GRAPH_CLASSPATH),
             "ltid.log_graph.Launcher",
             "--environment",
             f"{launcher}:{path}",
@@ -52,33 +52,34 @@ class LTIDLogGraphExecutionError(Exception):
 
 
 class LogTypeManager:
-    types: dict[str, "LogType"]
+    types: dict[int, "LogType"]
 
     def __init__(self):
         self.types = dict()
 
     def make(self, idom: str, event: str, level: str, template: str):
+        event_id = int(event)
         logtype = LogType(
             _manager=self,
-            idom=idom,
-            event=event,
+            idom=int(idom),
+            event=event_id,
             level=level.upper(),
             template=template,
         )
 
-        self.types[event] = logtype
+        self.types[event_id] = logtype
 
         return logtype
 
-    def __getitem__(self, index: str):
+    def __getitem__(self, index: int):
         return self.types[index]
 
 
 @dataclass(slots=True)
 class LogType:
     _manager: Annotated[LogTypeManager, field(repr=False)]
-    idom: str
-    event: str
+    idom: int
+    event: int
     level: str
     template: str
 

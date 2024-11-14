@@ -5,7 +5,11 @@ from lxml import etree
 
 ns = {"src": "http://www.srcML.org/srcML/src"}
 queryvars = etree.XPath("//src:name/text()", namespaces=ns)
-islog = etree.RelaxNG(etree.parse(str(resources.path(__package__, "logpattern.rng"))))
+islog = etree.RelaxNG(
+    etree.parse(
+        str(resources.path(__package__ or "__main__", "logpattern.rng")), parser=None
+    )
+)
 
 
 def extractlog(root):
