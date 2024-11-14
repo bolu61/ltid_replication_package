@@ -9,6 +9,6 @@ authors = [{ name = "bolu61", email = "bolu61@zjc.dev" }]
 dependencies = ["lxml", "pygit2"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ltid_toolkit"]
+packages = ["src/ltid/toolkit"]
 
 [tool.hatch.build.hooks.custom]

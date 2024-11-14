@@ -14,7 +14,7 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 import picocli.CommandLine.Model.CommandSpec;
 
-@Command(name = "logid", mixinStandardHelpOptions = true)
+@Command(name = "ltid_log_graph", mixinStandardHelpOptions = true)
 public class Launcher {
     public static void main(String... argv) {
         System.exit(new CommandLine(new Launcher()).execute(argv));
