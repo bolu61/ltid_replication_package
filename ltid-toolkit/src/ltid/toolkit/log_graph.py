@@ -8,7 +8,9 @@ from typing import Annotated, Iterable
 
 _TEMPLATE_VAR_REGEX = re.compile(r"\{(\w*)\}")
 
-LTID_LOG_GRAPH_CLASSPATH = resources.files((__package__ or "__main__").split(".")[0]) / "include" / "*"
+LTID_LOG_GRAPH_CLASSPATH = (
+    resources.files((__package__ or "__main__").split(".")[0]) / "include" / "*"
+)
 
 
 def gather(path: Path, launcher: str = "file") -> Iterable["LogType"]:
@@ -77,7 +79,7 @@ class LogTypeManager:
 
 @dataclass(slots=True)
 class LogType:
-    _manager: Annotated[LogTypeManager, field(repr=False)]
+    _manager: LogTypeManager = field(repr=False)
     idom: int
     event: int
     level: str

@@ -1,6 +1,5 @@
-from pylibsrcml.srcml import srcml_archive, srcml_unit
-
 from lxml import etree
+from pylibsrcml.srcml import srcml_archive, srcml_unit
 
 
 class Parser:

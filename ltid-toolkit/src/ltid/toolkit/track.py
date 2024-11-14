@@ -1,31 +1,25 @@
+import itertools
 from dataclasses import dataclass
 from enum import Enum
-import itertools
 from typing import Iterator
 
 from pygit2 import (
     Commit,
     Diff,
-    GIT_DIFF_IGNORE_WHITESPACE_CHANGE,
-    GIT_DIFF_INDENT_HEURISTIC,
-    GIT_DIFF_MINIMAL,
-    GIT_DIFF_PATIENCE,
-    GIT_SORT_REVERSE,
-    GIT_SORT_TIME,
-    GIT_SORT_TOPOLOGICAL,
-    Repository,
 )
+from pygit2.enums import DiffOption, SortMode
+from pygit2.repository import Repository
 
 from .parse import Parser
 from .query import extractid, extractlog
 
-WALK_ORDER = GIT_SORT_REVERSE | GIT_SORT_TOPOLOGICAL | GIT_SORT_TIME
+WALK_ORDER = SortMode.REVERSE | SortMode.TOPOLOGICAL | SortMode.TIME
 
 DIFF_FLAGS = (
-    GIT_DIFF_INDENT_HEURISTIC
-    | GIT_DIFF_IGNORE_WHITESPACE_CHANGE
-    | GIT_DIFF_PATIENCE
-    | GIT_DIFF_MINIMAL
+    DiffOption.INDENT_HEURISTIC
+    | DiffOption.IGNORE_WHITESPACE_CHANGE
+    | DiffOption.PATIENCE
+    | DiffOption.MINIMAL
 )
 
 

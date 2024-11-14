@@ -1,11 +1,11 @@
-from typing import Iterable
-from urllib.parse import urlparse
-from pathlib import Path
-from pygit2 import RemoteCallbacks, clone_repository, Repository
 from dataclasses import dataclass
-from functools import partial
-from pygit2.remote import TransferProgress
+from pathlib import Path
+from urllib.parse import urlparse
 
+from pygit2 import clone_repository
+from pygit2.callbacks import RemoteCallbacks
+from pygit2.remotes import TransferProgress
+from pygit2.repository import Repository
 from tqdm import tqdm
 
 
@@ -31,7 +31,7 @@ def project(url: str, path: Path) -> "Project":
     path = path.resolve()
 
     if path.is_dir():
-        return Project(name, path, Repository(path))
+        return Project(name, path, Repository(str(path)))
 
     with tqdm(desc=f"cloning {parsed.geturl()}", leave=False) as pbar:
         if repo := clone_repository(

@@ -1,7 +1,8 @@
-from concurrent.futures import ThreadPoolExecutor
-from collections import deque
-from contextlib import contextmanager
 import sys
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from typing import IO, cast
 
 from tqdm import tqdm
 from tqdm.contrib import DummyTqdmFile
@@ -9,24 +10,16 @@ from tqdm.contrib import DummyTqdmFile
 
 @contextmanager
 def redirect():
-    if isinstance(sys.stdout, DummyTqdmFile) and isinstance(sys.stdout, DummyTqdmFile):
-        yield redirect.stdout, redirect.stderr
-        return
-
-    redirect.stdout = sys.stdout
-    redirect.stderr = sys.stderr
-    sys.stdout = DummyTqdmFile(sys.stdout)
-    sys.stderr = DummyTqdmFile(sys.stderr)
-    try:
-        yield redirect.stdout, redirect.stderr
-    finally:
-        sys.stdout = redirect.stdout
-        sys.stderr = redirect.stderr
+    with redirect_stdout(
+        cast(IO[str], DummyTqdmFile(sys.stdout))
+    ) as out, redirect_stderr(cast(IO[str], DummyTqdmFile(sys.stderr))) as err:
+        yield out, err
 
 
 def bar(iterable, total=None, desc=None):
-    with redirect() as fds:
-        yield from tqdm(iterable, total=total, file=fds[1], leave=False, desc=desc)
+    file = sys.stderr
+    with redirect():
+        yield from tqdm(iterable, total=total, file=file, leave=False, desc=desc)
 
 
 def consume(iterable):
