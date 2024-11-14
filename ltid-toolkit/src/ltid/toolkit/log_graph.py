@@ -61,6 +61,7 @@ class LogTypeManager:
         logtype = LogType(
             _manager=self,
             idom=idom,
+            event=event,
             level=level.upper(),
             template=template,
         )
