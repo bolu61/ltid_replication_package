@@ -49,7 +49,7 @@
           <archive>
             <manifest>
               <addClasspath>true</addClasspath>
-              <mainClass>sense.ltid_log_graph.Launcher</mainClass>
+              <mainClass>ltid.log_graph.Launcher</mainClass>
             </manifest>
           </archive>
         </configuration>

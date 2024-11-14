@@ -1,8 +1,8 @@
-package sense.ltid_log_graph.commands;
+package ltid.log_graph.commands;
 
-import sense.ltid_log_graph.DominatorControlFlowGraph;
-import sense.ltid_log_graph.Environment;
-import sense.ltid_log_graph.events.factory.LogEventFactory;
+import ltid.log_graph.DominatorControlFlowGraph;
+import ltid.log_graph.Environment;
+import ltid.log_graph.events.factory.LogEventFactory;
 import spoon.reflect.CtModel;
 
 public class Instrument {
@@ -18,11 +18,10 @@ public class Instrument {
     
     private Instrument(Environment env) {
         this.model = env.model(); 
-        this.logEventFactory.stream(model.getRootPackage());
     }
     
     private void run() {
-        
+        this.logEventFactory.stream(model.getRootPackage());
     }
     
 }

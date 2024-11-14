@@ -1,22 +1,21 @@
 import csv
-import os
 import re
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
 from subprocess import PIPE, run
-from typing import Dict, Iterable, List
+from typing import Annotated, Iterable
 
 _TEMPLATE_VAR_REGEX = re.compile(r"\{(\w*)\}")
 
-LTID_LOG_GRAPH_CLASSPATH = resources.files(__package__) / "include" / "*"
+LTID_LOG_GRAPH_CLASSPATH = resources.files(__package__.split(".")[0]) / "include" / "*"
 
 
 def gather(path: Path, launcher: str = "file") -> Iterable["LogType"]:
-    factory = LogTypeFactory()
+    factory = LogTypeManager()
     out = _run_log_graph(path, "gather", launcher=launcher).splitlines()
     for row in csv.reader(out, delimiter=",", quotechar='"', quoting=csv.QUOTE_ALL):
-        yield factory.cons(*row)
+        yield factory.make(*row)
 
 
 def _run_log_graph(path: Path, command: str, *args: str, launcher: str = "file"):
@@ -25,7 +24,7 @@ def _run_log_graph(path: Path, command: str, *args: str, launcher: str = "file")
             "java",
             "-cp",
             LTID_LOG_GRAPH_CLASSPATH,
-            "sense.ltid_log_graph.Launcher",
+            "ltid.log_graph.Launcher",
             "--environment",
             f"{launcher}:{path}",
             command,
@@ -36,59 +35,59 @@ def _run_log_graph(path: Path, command: str, *args: str, launcher: str = "file")
         text=True,
     )
     if result.returncode != 0:
-        raise LogidExecutionError(
+        raise LTIDLogGraphExecutionError(
             {
                 "command": result.args,
                 "returncode": result.returncode,
                 "message": result.stderr,
                 "output": result.stdout,
-<<<<<<< Updated upstream:ltid-toolkit/src/ltid_toolkit/log_graph.py
                 "classpath": LTID_LOG_GRAPH_CLASSPATH,
-=======
->>>>>>> Stashed changes:toolkit/logid/__init__.py
             }
         )
     return result.stdout
 
 
-class LogidExecutionError(Exception):
+class LTIDLogGraphExecutionError(Exception):
     pass
 
 
-class LogTypeFactory:
-    types: Dict[str, "LogType"]
+class LogTypeManager:
+    types: dict[str, "LogType"]
 
     def __init__(self):
         self.types = dict()
 
-    def cons(self, idom: str, event: str, level: str, template: str):
+    def make(self, idom: str, event: str, level: str, template: str):
         logtype = LogType(
-            factory=self,
+            _manager=self,
             idom=idom,
             level=level.upper(),
             template=template,
-            variables=_TEMPLATE_VAR_REGEX.findall(template),
         )
 
         self.types[event] = logtype
 
         return logtype
 
-    def find(self, index: str):
+    def __getitem__(self, index: str):
         return self.types[index]
 
 
 @dataclass(slots=True)
 class LogType:
-    factory: LogTypeFactory = field(repr=False)
-    idom: str = field(repr=False)
+    _manager: Annotated[LogTypeManager, field(repr=False)]
+    idom: str
+    event: str
     level: str
     template: str
-    variables: List[str]
 
     @property
     def dominators(self):
         node = self
         while node.idom:
-            node = self.factory.find(node.idom)
+            node = self._manager[node.idom]
             yield node
+
+    @property
+    def variables(self):
+        return _TEMPLATE_VAR_REGEX.findall(self.template)

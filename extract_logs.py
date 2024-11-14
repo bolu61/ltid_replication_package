@@ -7,10 +7,10 @@ from pathlib import Path
 from typing import List
 
 from package import scratch, subjects
-from toolkit.logid import LogidExecutionError, gather
-from toolkit.execution import bar, do
-from toolkit.project import Project, split_project
-from toolkit.query import isid
+from ltid.toolkit.log_graph import LTIDLogGraphExecutionError, gather
+from ltid.toolkit.execution import bar, do
+from ltid.toolkit.project import Project, split_project
+from ltid.toolkit.query import isid
 
 logging.basicConfig(level=logging.DEBUG, format='%(threadName)s %(levelname)s %(message)s')
 
@@ -22,7 +22,7 @@ def process(subjects: List[Project]):
                 logtypes = list(gather(split, launcher="file"))
                 logging.info("%s", split)
                 return logtypes
-            except LogidExecutionError:
+            except LTIDLogGraphExecutionError:
                 logging.warning("failed to extract logs from %s retrying by split", split)
                 splits = list(filter(lambda s: s.is_dir() or s.suffix == '.java' and s.stem != 'package-info', split_project(split, maxdepth=4)))
                 if len(splits) == 0:
