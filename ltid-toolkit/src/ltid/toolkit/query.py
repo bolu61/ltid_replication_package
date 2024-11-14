@@ -1,14 +1,11 @@
-import pathlib
 import re
+from importlib import resources
 
 from lxml import etree
 
-
 ns = {"src": "http://www.srcML.org/srcML/src"}
 queryvars = etree.XPath("//src:name/text()", namespaces=ns)
-islog = etree.RelaxNG(
-    etree.parse(str(pathlib.Path(__file__).parent / "logpattern.rng"))
-)
+islog = etree.RelaxNG(etree.parse(str(resources.path(__package__, "logpattern.rng"))))
 
 
 def extractlog(root):
