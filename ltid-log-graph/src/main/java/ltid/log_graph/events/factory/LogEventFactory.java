@@ -128,7 +128,7 @@ public class LogEventFactory {
                 }
 
                 @Override
-                public CtElement element() {
+                public CtElement getElement() {
                     return element;
                 }
 

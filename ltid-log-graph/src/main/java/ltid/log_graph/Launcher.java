@@ -48,7 +48,7 @@ public class Launcher {
     }
 
     @Command(name = "output", mixinStandardHelpOptions = true)
-    void output() {
+    void output() throws IOException {
         OutputGraph.run(out(), env);
     }
 }

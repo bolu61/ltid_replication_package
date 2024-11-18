@@ -24,9 +24,15 @@ def gather(path: Path, launcher: str = "file") -> Iterable["LogType"]:
 
 
 def get_log_graph(path: Path, launcher: str = "file") -> nx.DiGraph:
-    out = _run_log_graph(path, "output", launcher=launcher)
-    sys.stdout.writelines(out)
-    return None
+    g = nx.DiGraph()
+    for row in csv.reader(
+        _run_log_graph(path, "output", launcher=launcher),
+        delimiter=",",
+        quotechar='"',
+        quoting=csv.QUOTE_ALL,
+    ):
+        pass
+    return g
 
 
 def _run_log_graph(

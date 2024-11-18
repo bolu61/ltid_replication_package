@@ -7,6 +7,7 @@ import spoon.Launcher;
 import spoon.MavenLauncher;
 import spoon.compiler.Environment.PRETTY_PRINTING_MODE;
 import spoon.reflect.CtModel;
+import spoon.reflect.declaration.CtPackage;
 import spoon.support.sniper.SniperJavaPrettyPrinter;
 
 public class Environment {
@@ -61,6 +62,10 @@ public class Environment {
 
     public CtModel model() {
         return launcher.buildModel();
+    }
+    
+    public CtPackage rootPackage() {
+        return this.model().getRootPackage();
     }
 
     public SniperJavaPrettyPrinter sniper() {

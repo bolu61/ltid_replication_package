@@ -8,46 +8,49 @@ import com.opencsv.CSVWriter;
 import ltid.log_graph.Environment;
 import ltid.log_graph.events.LogEvent;
 import ltid.log_graph.events.factory.LogEventFactory;
-import spoon.reflect.CtModel;
-import spoon.reflect.cu.SourcePosition;
-import spoon.reflect.declaration.CtMethod;
-import spoon.reflect.declaration.CtPackage;
 
 public class OutputGraph {
 
-    public static void run(Writer out, Environment env) {
+    public static void run(Writer out, Environment env) throws IOException {
         new OutputGraph(out, env).run();
     }
 
-    private LogEventFactory logEventFactory = new LogEventFactory();
-
-    private final CSVWriter writer;
-    private final CtModel model;
+    private final Writer out;
+    private final Environment env;
 
     private OutputGraph(Writer out, Environment env) {
-        this.writer = new CSVWriter(out);
-        this.model = env.model();
+        this.out = out;
+        this.env = env;
     }
 
-    private void run() {
-        this.logEventFactory.stream(model.getRootPackage()).forEach((LogEvent logEvent) -> {
-            SourcePosition position = logEvent.element().getPosition();
-            CtMethod<?> method = logEvent.element().getParent(CtMethod.class);
-            if (method == null) {
-                return;
-            }
-            CtPackage pkg = method.getDeclaringType().getPackage();
-            if (pkg == null) {
-                return;
-            }
-            String logEventId = String.valueOf(logEvent.id());
-            String dominator = String.valueOf(logEvent.dominator().map(d -> d.id()).orElse(-1));
-            String packageName = pkg.getQualifiedName();
-            String className = method.getDeclaringType().getSimpleName();
-            String fileName = position.getFile().getName();
-            String methodName = method.getSimpleName();
-            String lineNumber = String.valueOf(position.getLine());
-            writer.writeNext(new String[] { logEventId, dominator, packageName, className, fileName, methodName, lineNumber });
-        });
+    private void run() throws IOException {
+        try (CSVWriter writer = new CSVWriter(out)) {
+            new LogEventFactory().stream(env.rootPackage())
+                    .map(this::toRecord)
+                    .forEach(writer::writeNext);
+        }
+    }
+
+    private String[] toRecord(LogEvent logEvent) {
+        String dominator = String.valueOf(logEvent.dominator().map(d -> d.id()).orElse(-1));
+        String logEventId = String.valueOf(logEvent.id());
+        String className = logEvent.getDeclaringType().getQualifiedName();
+        String fileName = logEvent.getPosition().getFile().getName();
+        String methodName = logEvent.getExecutable().map(e -> e.getSimpleName()).orElse("<init>");
+        String lineNumber = String.valueOf(logEvent.getPosition().getLine());
+        String level = String.valueOf(logEvent.level());
+        String template = logEvent.template();
+        String variables = String.valueOf(logEvent.variables());
+        return new String[] {
+                dominator,
+                logEventId,
+                className,
+                fileName,
+                methodName,
+                lineNumber,
+                level,
+                template,
+                variables
+        };
     }
 }

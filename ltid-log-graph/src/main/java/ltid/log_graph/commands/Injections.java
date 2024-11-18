@@ -78,7 +78,7 @@ public class Injections {
                             return;
                         }
 
-                        var element = event.element();
+                        var element = event.getElement();
 
                         var sniper = new ElementLocator(executable);
 
@@ -111,7 +111,7 @@ public class Injections {
 
                         comment(blockresize(fragment, sniper.locate(element)), msg.toString());
                         while (dominator.isPresent()) {
-                            comment(blockresize(fragment, sniper.locate(dominator.get().element())),
+                            comment(blockresize(fragment, sniper.locate(dominator.get().getElement())),
                                     "// #LOG ASSOCIATE");
                             dominator = dominator.get().dominator();
                         }
