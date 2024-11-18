@@ -40,7 +40,6 @@ public class OutputGraph {
         String lineNumber = String.valueOf(logEvent.getPosition().getLine());
         String level = String.valueOf(logEvent.level());
         String template = logEvent.template();
-        String variables = String.valueOf(logEvent.variables());
         return new String[] {
                 dominator,
                 logEventId,
@@ -50,7 +49,6 @@ public class OutputGraph {
                 lineNumber,
                 level,
                 template,
-                variables
         };
     }
 }

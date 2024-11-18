@@ -1,6 +1,5 @@
 import csv
 import re
-import sys
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
@@ -75,7 +74,7 @@ class LogTypeManager:
     def __init__(self):
         self.types = dict()
 
-    def make(self, idom: str, event: str, level: str, template: str):
+    def make(self, idom: str, event: str, level: str, template: str, package: str | None = None, path: str | None = None, parent: str | None = None, line: str | None = None):
         event_id = int(event)
         logtype = LogType(
             _manager=self,
@@ -100,6 +99,10 @@ class LogType:
     event: int
     level: str
     template: str
+    package: list[str] | None = None
+    path: Path | None = None
+    parent: str | None = None
+    lineno: int | None = None
 
     @property
     def dominators(self):
