@@ -1,10 +1,13 @@
 import csv
 import re
+import sys
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
-from subprocess import PIPE, run
-from typing import Annotated, Iterable
+from subprocess import PIPE, Popen
+from typing import Iterable
+
+import networkx as nx
 
 _TEMPLATE_VAR_REGEX = re.compile(r"\{(\w*)\}")
 
@@ -20,8 +23,16 @@ def gather(path: Path, launcher: str = "file") -> Iterable["LogType"]:
         yield factory.make(*row)
 
 
-def _run_log_graph(path: Path, command: str, *args: str, launcher: str = "file"):
-    result = run(
+def get_log_graph(path: Path, launcher: str = "file") -> nx.DiGraph:
+    out = _run_log_graph(path, "output", launcher=launcher)
+    sys.stdout.writelines(out)
+    return None
+
+
+def _run_log_graph(
+    path: Path, command: str, *args: str, launcher: str = "file"
+) -> Iterable[str]:
+    proc = Popen(
         [
             "java",
             "-cp",
@@ -36,17 +47,16 @@ def _run_log_graph(path: Path, command: str, *args: str, launcher: str = "file")
         stderr=PIPE,
         text=True,
     )
-    if result.returncode != 0:
+    yield from proc.stdout
+    if proc.wait() != 0:
         raise LTIDLogGraphExecutionError(
             {
-                "command": result.args,
-                "returncode": result.returncode,
-                "message": result.stderr,
-                "output": result.stdout,
+                "command": proc.args,
+                "returncode": proc.returncode,
+                "message": proc.stderr.readlines(),
                 "classpath": LTID_LOG_GRAPH_CLASSPATH,
             }
         )
-    return result.stdout
 
 
 class LTIDLogGraphExecutionError(Exception):

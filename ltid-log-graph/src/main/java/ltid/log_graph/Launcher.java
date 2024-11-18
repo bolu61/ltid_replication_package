@@ -8,11 +8,12 @@ import java.util.Optional;
 
 import ltid.log_graph.commands.Gather;
 import ltid.log_graph.commands.Injections;
+import ltid.log_graph.commands.OutputGraph;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
-import picocli.CommandLine.Model.CommandSpec;
 
 @Command(name = "ltid_log_graph", mixinStandardHelpOptions = true)
 public class Launcher {
@@ -23,7 +24,8 @@ public class Launcher {
     @Spec
     CommandSpec spec;
 
-    @Option(names = {"-e", "--env", "--environment"}, defaultValue = "file:.", converter = Environment.Converter.class)
+    @Option(names = { "-e", "--env",
+            "--environment" }, defaultValue = "file:.", converter = Environment.Converter.class)
     Environment env;
 
     public PrintWriter out() {
@@ -43,5 +45,10 @@ public class Launcher {
         } else {
             Injections.execute(out(), env, Optional.empty());
         }
+    }
+
+    @Command(name = "output", mixinStandardHelpOptions = true)
+    void output() {
+        OutputGraph.run(out(), env);
     }
 }
