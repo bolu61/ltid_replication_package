@@ -5,11 +5,9 @@ import java.util.Optional;
 
 import ltid.log_graph.Variable;
 import spoon.reflect.cu.SourcePosition;
-import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtExecutable;
 import spoon.reflect.declaration.CtMethod;
-import spoon.reflect.declaration.CtPackage;
 import spoon.reflect.declaration.CtType;
 import spoon.reflect.path.CtPath;
 
