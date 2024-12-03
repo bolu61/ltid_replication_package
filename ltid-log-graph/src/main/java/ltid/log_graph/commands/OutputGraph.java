@@ -2,6 +2,7 @@ package ltid.log_graph.commands;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.util.function.Function;
 
 import com.opencsv.CSVWriter;
 
@@ -28,14 +29,17 @@ public class OutputGraph {
             new LogEventFactory().stream(env.rootPackage())
                     .map(this::toRecord)
                     .forEach(writer::writeNext);
+        } catch (IOException e) {
+            
         }
     }
 
     private String[] toRecord(LogEvent logEvent) {
         String dominator = String.valueOf(logEvent.dominator().map(d -> d.id()).orElse(-1));
         String logEventId = String.valueOf(logEvent.id());
+        String path = logEvent.getPosition().getFile().getPath().toString();
+        String packageName = logEvent.getDeclaringType().getQualifiedName();
         String className = logEvent.getDeclaringType().getQualifiedName();
-        String fileName = logEvent.getPosition().getFile().getName();
         String methodName = logEvent.getExecutable().map(e -> e.getSimpleName()).orElse("<init>");
         String lineNumber = String.valueOf(logEvent.getPosition().getLine());
         String level = String.valueOf(logEvent.level());
@@ -43,8 +47,9 @@ public class OutputGraph {
         return new String[] {
                 dominator,
                 logEventId,
+                path,
+                packageName,
                 className,
-                fileName,
                 methodName,
                 lineNumber,
                 level,
