@@ -8,11 +8,11 @@ from importlib import resources
 from io import StringIO
 from pathlib import Path
 from subprocess import PIPE, Popen
-from typing import Any, Iterable, Iterator, Sequence, TextIO
-from ltid.toolkit.separate import separate
-from prefixspan import make_trie, trie
+from typing import Any, Iterable, Iterator, Mapping, Sequence, TextIO
 
 import networkx as nx
+import pandas as pd
+from prefixspan import make_trie, trie
 
 _TEMPLATE_VAR_REGEX = re.compile(r"\{(\w*)\}")
 
@@ -53,38 +53,15 @@ def main():
     log_graph.dump(sys.stdout)
 
 
+def _parse_logs_with_loc(log: str) -> Mapping[str, Any]:
+    raise NotImplementedError()
+
+
 class LogGraph:
     _graph: nx.DiGraph
 
     def __init__(self):
         self._graph = nx.DiGraph()
-
-    def add(
-        self,
-        idom_id: int,
-        event_id: int,
-        path: Path,
-        package: list[str],
-        class_name: str,
-        method_name: str,
-        line_number: int,
-        level: str,
-        template: str,
-    ):
-        self._graph.add_node(
-            event_id,
-            id=event_id,
-            path=path,
-            package_name=package,
-            class_name=class_name,
-            method_name=method_name,
-            line_number=line_number,
-            level=level,
-            template=template,
-        )
-
-        if idom_id >= 0:
-            self._graph.add_edge(event_id, idom_id)
 
     def __getitem__(self, event_id: int):
         return self._graph.nodes[event_id]
@@ -97,11 +74,32 @@ class LogGraph:
     def dump(self, file: TextIO):
         data = nx.node_link_data(self._graph, link="edges")
         json.dump(data, file, cls=JSONEncoderWithPath)
-        
+
     @staticmethod
-    def from_logs(logs: Sequence[str]) -> "LogGraph":
+    def from_logs(logs: Sequence[str], window_duration: int) -> "LogGraph":
         log_graph = LogGraph()
-        pattern_tree = make_trie(logs, minsup = len(logs) // 10)
+        dataset = (
+            pd.concat(pd.DataFrame(_parse_logs_with_loc(log)) for log in logs)
+            .set_index("timestamp")
+            .sort_index()
+        )
+        patterns = make_trie(
+            [*dataset["event_ids"].rolling(f"{window_duration}ms")],
+            minsup=len(logs) // 10,
+        )
+        for timestamp, row in dataset.iterrows():
+            log_graph._graph.add_node(row.pop("event_id"), **row)
+
+        stack: list[tuple[int, trie]] = []
+        for event_id, t in patterns:
+            log_graph._graph.add_edge(event_id, -1)
+            stack.append((event_id, t))
+        while stack:
+            idom_id, s = stack.pop()
+            for event_id, t in s:
+                log_graph._graph.add_edge(event_id, idom_id)
+                stack.append((event_id, t))
+
         return log_graph
 
     @staticmethod
@@ -123,9 +121,8 @@ class LogGraph:
             quotechar='"',
             quoting=csv.QUOTE_ALL,
         ):
-            log_graph.add(
-                idom_id=int(idom_id),
-                event_id=int(event_id),
+            log_graph._graph.add_node(
+                (event := int(event_id)),
                 path=Path(path),
                 package=package_name.split("."),
                 class_name=class_name,
@@ -134,6 +131,8 @@ class LogGraph:
                 level=level,
                 template=template,
             )
+            if (idom := int(idom_id)) >= 0:
+                log_graph._graph.add_edge(event, idom)
 
         return log_graph
 
