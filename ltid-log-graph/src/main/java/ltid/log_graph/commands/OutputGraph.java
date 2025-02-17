@@ -2,7 +2,6 @@ package ltid.log_graph.commands;
 
 import java.io.IOException;
 import java.io.Writer;
-import java.util.function.Function;
 
 import com.opencsv.CSVWriter;
 
