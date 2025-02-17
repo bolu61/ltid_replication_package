@@ -7,7 +7,7 @@ ns = {"src": "http://www.srcML.org/srcML/src"}
 queryvars = etree.XPath("//src:name/text()", namespaces=ns)
 islog = etree.RelaxNG(
     etree.parse(
-        str(resources.path(__package__ or "__main__", "logpattern.rng")), parser=None
+        str(resources.files() / "logpattern.rng"), parser=None
     )
 )
 
