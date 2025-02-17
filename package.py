@@ -1,8 +1,8 @@
 from pathlib import Path
 from typing import List, Optional
-from toolkit.project import Project, project
+from ltid.toolkit.project import Project, project
 from functools import partial
-from toolkit.execution import do
+from ltid.toolkit.execution import do
 
 
 def scratch(name: Optional[str] = None) -> Path:
