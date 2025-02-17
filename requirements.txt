@@ -3,4 +3,4 @@ lxml
 pycparser
 pygit2
 tqdm
-./ltid-toolkit
+-e ./ltid-toolkit

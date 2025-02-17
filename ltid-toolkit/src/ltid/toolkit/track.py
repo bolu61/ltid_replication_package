@@ -48,7 +48,7 @@ class difftrack:
 
     @classmethod
     def fromcommit(cls, commit: Commit) -> "difftrack":
-        return cls(commit.id.hex, commit.commit_time)
+        return cls(str(commit.id), commit.commit_time)
 
 
 class difftracker:
@@ -63,7 +63,7 @@ class difftracker:
         track = difftrack.fromcommit(commit)
         for parent in commit.parents:
             diff = self._repository.diff(
-                commit, parent, flags=DIFF_FLAGS, context_lines=4
+                commit.id, parent.id, flags=DIFF_FLAGS, context_lines=4
             )
             if type(diff) is not Diff:
                 raise Exception()
