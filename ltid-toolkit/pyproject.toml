@@ -6,9 +6,16 @@ build-backend = "hatchling.build"
 name = "ltid-toolkit"
 version = "0.3.0"
 authors = [{ name = "bolu61", email = "bolu61@zjc.dev" }]
-dependencies = ["lxml", "pygit2", "pylibsrcml", "networkx"]
+dependencies = [
+    "lxml",
+    "pygit2",
+    "pylibsrcml",
+    "networkx",
+    "prefixspan @ git+https://github.com/bolu61/prefixspan@main#subdirectory=bindings/python",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ltid"]
 
-[tool.hatch.build.hooks.custom]
+[tool.hatch.metadata]
+allow-direct-references = true

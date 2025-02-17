@@ -1,11 +1,16 @@
 import csv
+import json
 import re
+import sys
+from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass, field
 from importlib import resources
+from io import StringIO
 from pathlib import Path
 from subprocess import PIPE, Popen
-from typing import Iterable, Iterator, Any
-from collections.abc import Mapping
+from typing import Any, Iterable, Iterator, Sequence, TextIO
+from ltid.toolkit.separate import separate
+from prefixspan import make_trie, trie
 
 import networkx as nx
 
@@ -14,6 +19,38 @@ _TEMPLATE_VAR_REGEX = re.compile(r"\{(\w*)\}")
 LTID_LOG_GRAPH_CLASSPATH = (
     resources.files((__package__ or "__main__").split(".")[0]) / "include" / "*"
 )
+
+
+class JSONEncoderWithPath(json.JSONEncoder):
+    def default(self, o: Any):
+        match o:
+            case Path():
+                return str(o)
+            case _:
+                return super().default(o)
+
+
+@dataclass
+class GetLogGraphArguments(Namespace):
+    file: Path | None = None
+
+
+def main():
+    argument_parser = ArgumentParser()
+    argument_parser.add_argument(
+        "-f",
+        "--file",
+        type=Path,
+        required=True,
+    )
+    arguments = argument_parser.parse_args(namespace=GetLogGraphArguments())
+    match arguments:
+        case GetLogGraphArguments(file) if file is not None:
+            log_graph = LogGraph.from_source(file, launcher="file")
+        case _:
+            raise NotImplementedError()
+
+    log_graph.dump(sys.stdout)
 
 
 class LogGraph:
@@ -34,8 +71,8 @@ class LogGraph:
         level: str,
         template: str,
     ):
-        node = LogNode(
-            self._graph,
+        self._graph.add_node(
+            event_id,
             id=event_id,
             path=path,
             package_name=package,
@@ -46,77 +83,59 @@ class LogGraph:
             template=template,
         )
 
-        self._graph.add_node(event_id, log_statement=node)
         if idom_id >= 0:
             self._graph.add_edge(event_id, idom_id)
 
-        return node
-
     def __getitem__(self, event_id: int):
         return self._graph.nodes[event_id]
-    
-    def dump(self) -> Mapping[Any, Any]:
-        return nx.node_link_data(self._graph, link="edges")
 
+    def __str__(self) -> str:
+        with StringIO() as buf:
+            self.dump(buf)
+            return buf.getvalue()
 
-@dataclass(slots=True)
-class LogNode:
-    _log_graph: nx.DiGraph
-    id: int
-    path: Path
-    package_name: list[str]
-    class_name: str
-    method_name: str
-    line_number: int
-    level: str
-    template: str
+    def dump(self, file: TextIO):
+        data = nx.node_link_data(self._graph, link="edges")
+        json.dump(data, file, cls=JSONEncoderWithPath)
+        
+    @staticmethod
+    def from_logs(logs: Sequence[str]) -> "LogGraph":
+        log_graph = LogGraph()
+        pattern_tree = make_trie(logs, minsup = len(logs) // 10)
+        return log_graph
 
-    @property
-    def immediate_dominator(self):
-        return next(self.dominators)
+    @staticmethod
+    def from_source(target_path: Path, launcher: str = "file") -> "LogGraph":
+        log_graph = LogGraph()
+        for (
+            idom_id,
+            event_id,
+            path,
+            package_name,
+            class_name,
+            method_name,
+            line_number,
+            level,
+            template,
+        ) in csv.reader(
+            _run_log_graph(target_path, "output", launcher=launcher),
+            delimiter=",",
+            quotechar='"',
+            quoting=csv.QUOTE_ALL,
+        ):
+            log_graph.add(
+                idom_id=int(idom_id),
+                event_id=int(event_id),
+                path=Path(path),
+                package=package_name.split("."),
+                class_name=class_name,
+                method_name=method_name,
+                line_number=int(line_number),
+                level=level,
+                template=template,
+            )
 
-    @property
-    def dominators(self):
-        while len(nodes := self._log_graph.succ[self.id]) > 0:
-            assert len(nodes) == 1
-            yield (self := nodes[0])
-
-    @property
-    def variables(self):
-        return _TEMPLATE_VAR_REGEX.findall(self.template)
-
-
-def get_log_graph(target_path: Path, launcher: str = "file") -> LogGraph:
-    log_graph = LogGraph()
-    for (
-        idom_id,
-        event_id,
-        path,
-        package_name,
-        class_name,
-        method_name,
-        line_number,
-        level,
-        template,
-    ) in csv.reader(
-        _run_log_graph(target_path, "output", launcher=launcher),
-        delimiter=",",
-        quotechar='"',
-        quoting=csv.QUOTE_ALL,
-    ):
-        log_graph.add(
-            idom_id=int(idom_id),
-            event_id=int(event_id),
-            path=Path(path),
-            package=package_name.split("."),
-            class_name=class_name,
-            method_name=method_name,
-            line_number=int(line_number),
-            level=level,
-            template=template,
-        )
-
-    return log_graph
+        return log_graph
 
 
 def _run_log_graph(
@@ -218,3 +237,7 @@ def gather(path: Path, launcher: str = "file") -> Iterable["LogType"]:
     out = _run_log_graph(path, "gather", launcher=launcher)
     for row in csv.reader(out, delimiter=",", quotechar='"', quoting=csv.QUOTE_ALL):
         yield factory.make(*row)
+
+
+if __name__ == "__main__":
+    main()
