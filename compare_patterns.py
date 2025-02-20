@@ -1,22 +1,14 @@
-import re
 from argparse import ArgumentParser
-from collections.abc import Sequence
 from datetime import timedelta
-from itertools import chain
-from math import floor
 from pathlib import Path
-from typing import Iterable, Iterator
+from typing import Iterator
 
-import numpy as np
-import pandas as pd
 from ltid.toolkit.log_graph import LogGraph
 from ltid.toolkit.log_patterns import make_pattern_tree
-from numpy.lib.stride_tricks import sliding_window_view
-from numpy.typing import ArrayLike
-from prefixspan import make_trie, trie
+from prefixspan import trie
 
 
-def main():
+def main(*args: str):
     argument_parser = ArgumentParser()
     argument_parser.add_argument("source_tree", type=Path)
     argument_parser.add_argument("log_files", type=Path, nargs="+")
@@ -24,15 +16,15 @@ def main():
     argument_parser.add_argument("--max_sequence_length", type=int, default=16)
     argument_parser.add_argument("--sequence_duration_ms", type=int, default=5)
     argument_parser.add_argument("--min_support_ratio", type=float, default=0.05)
-    args = argument_parser.parse_args()
+    config = argument_parser.parse_args(args)
 
-    log_graph = LogGraph.from_source(args.source_tree)
+    log_graph = LogGraph.from_source(config.source_tree)
     pattern_tree = make_pattern_tree(
-        args.log_files,
-        timedelta(milliseconds=args.sequence_duration_ms),
-        args.min_support_ratio,
+        config.log_files,
+        timedelta(milliseconds=config.sequence_duration_ms),
+        config.min_support_ratio,
     )
-    
+
     for matched_patterns in match(log_graph, pattern_tree):
         print(matched_patterns)
 
