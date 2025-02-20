@@ -8,7 +8,7 @@ from importlib import resources
 from io import StringIO
 from pathlib import Path
 from subprocess import PIPE, Popen
-from typing import Any, Iterable, Iterator, Mapping, Sequence, TextIO
+from typing import Any, Iterable, Iterator, Mapping, Sequence, TextIO, cast
 
 import networkx as nx
 import pandas as pd
@@ -57,7 +57,7 @@ def _parse_logs_with_loc(log: str) -> Mapping[str, Any]:
     raise NotImplementedError()
 
 
-class LogGraph:
+class LogGraph(nx.DiGraph):
     _graph: nx.DiGraph
 
     def __init__(self):
@@ -83,27 +83,27 @@ class LogGraph:
             .set_index("timestamp")
             .sort_index()
         )
-        patterns = make_trie(
-            [*dataset["event_ids"].rolling(f"{window_duration}ms")],
-            minsup=len(logs) // 10,
-        )
-        for timestamp, row in dataset.iterrows():
+
+        for _, row in dataset.iterrows():
             log_graph._graph.add_node(row.pop("event_id"), **row)
 
-        stack: list[tuple[int, trie]] = []
-        for event_id, t in patterns:
-            log_graph._graph.add_edge(event_id, -1)
-            stack.append((event_id, t))
+        patterns = make_trie(
+            [*dataset["event_id"].rolling(f"{window_duration}ms")],
+            minsup=len(logs) // 10,
+        )
+        stack: list[tuple[int, trie]] = [*patterns]
         while stack:
             idom_id, s = stack.pop()
             for event_id, t in s:
-                log_graph._graph.add_edge(event_id, idom_id)
+                log_graph._graph.add_edge(idom_id, event_id)
                 stack.append((event_id, t))
 
         return log_graph
 
     @staticmethod
     def from_source(target_path: Path, launcher: str = "file") -> "LogGraph":
+        if not target_path.exists():
+            raise ValueError(f"{target_path=} does not exist")
         log_graph = LogGraph()
         for (
             idom_id,
@@ -132,9 +132,12 @@ class LogGraph:
                 template=template,
             )
             if (idom := int(idom_id)) >= 0:
-                log_graph._graph.add_edge(event, idom)
+                log_graph._graph.add_edge(idom, event)
 
         return log_graph
+
+    def find_shortest_path(self, a: int, b: int) -> list[int]:
+        return cast(list[int], nx.shortest_path(self._graph, a, b))
 
 
 def _run_log_graph(

@@ -20,3 +20,6 @@ packages = ["src/ltid"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"

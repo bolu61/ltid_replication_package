@@ -4,3 +4,4 @@ pycparser
 pygit2
 tqdm
 -e ./ltid-toolkit
+typed-argument-parser
