@@ -1,148 +1,156 @@
 import csv
-import json
 import re
-import sys
-from argparse import ArgumentParser, Namespace
-from dataclasses import dataclass, field
+from collections.abc import Callable, Iterable, Iterator
+from dataclasses import dataclass
+from datetime import datetime
 from importlib import resources
-from io import StringIO
 from pathlib import Path
 from subprocess import PIPE, Popen
-from typing import Any, Iterable, Iterator, Mapping, Sequence, TextIO, cast
+from typing import cast
 
 import networkx as nx
-import pandas as pd
-from prefixspan import make_trie, trie
-
-_TEMPLATE_VAR_REGEX = re.compile(r"\{(\w*)\}")
+from prefixspan import trie
 
 LTID_LOG_GRAPH_CLASSPATH = (
     resources.files((__package__ or "__main__").split(".")[0]) / "include" / "*"
 )
 
 
-class JSONEncoderWithPath(json.JSONEncoder):
-    def default(self, o: Any):
-        match o:
-            case Path():
-                return str(o)
-            case _:
-                return super().default(o)
+type Loc = tuple[str, int]
+type _LogParser = Callable[[Iterable[str]], Iterator[tuple[datetime, int]]]
 
 
-@dataclass
-class GetLogGraphArguments(Namespace):
-    file: Path | None = None
-
-
-def main():
-    argument_parser = ArgumentParser()
-    argument_parser.add_argument(
-        "-f",
-        "--file",
-        type=Path,
-        required=True,
-    )
-    arguments = argument_parser.parse_args(namespace=GetLogGraphArguments())
-    match arguments:
-        case GetLogGraphArguments(file) if file is not None:
-            log_graph = LogGraph.from_source(file, launcher="file")
-        case _:
-            raise NotImplementedError()
-
-    log_graph.dump(sys.stdout)
-
-
-def _parse_logs_with_loc(log: str) -> Mapping[str, Any]:
-    raise NotImplementedError()
-
-
-class LogGraph(nx.DiGraph):
+class LogGraph:
     _graph: nx.DiGraph
+    _loc: dict[Loc, int]
 
     def __init__(self):
         self._graph = nx.DiGraph()
+        self._loc = dict()
 
     def __getitem__(self, event_id: int):
-        return self._graph.nodes[event_id]
+        return LogStatement(self._graph, event_id)
 
-    def __str__(self) -> str:
-        with StringIO() as buf:
-            self.dump(buf)
-            return buf.getvalue()
+    def __iter__(self) -> Iterator["LogStatement"]:
+        return map(self.__getitem__, self._graph.nodes)
 
-    def dump(self, file: TextIO):
-        data = nx.node_link_data(self._graph, link="edges")
-        json.dump(data, file, cls=JSONEncoderWithPath)
+    @property
+    def roots(self) -> tuple["LogStatement", ...]:
+        return tuple(self[n] for n, d in self._graph.in_degree() if d == 0)
+
+    @property
+    def leafs(self) -> tuple["LogStatement", ...]:
+        return tuple(self[n] for n, d in self._graph.out_degree() if d == 0)
+
+    @property
+    def paths(self) -> Iterator[tuple["LogStatement", ...]]:
+        for root in self.roots:
+            for leaf in self.leafs:
+                for path in nx.all_simple_paths(
+                    self._graph, root.event_id, leaf.event_id
+                ):
+                    yield tuple(self[n] for n in path)
 
     @staticmethod
-    def from_logs(logs: Sequence[str], window_duration: int) -> "LogGraph":
-        log_graph = LogGraph()
-        dataset = (
-            pd.concat(pd.DataFrame(_parse_logs_with_loc(log)) for log in logs)
-            .set_index("timestamp")
-            .sort_index()
-        )
-
-        for _, row in dataset.iterrows():
-            log_graph._graph.add_node(row.pop("event_id"), **row)
-
-        patterns = make_trie(
-            [*dataset["event_id"].rolling(f"{window_duration}ms")],
-            minsup=len(logs) // 10,
-        )
-        stack: list[tuple[int, trie]] = [*patterns]
-        while stack:
-            idom_id, s = stack.pop()
-            for event_id, t in s:
-                log_graph._graph.add_edge(idom_id, event_id)
-                stack.append((event_id, t))
-
-        return log_graph
+    def union(*log_graphs: "LogGraph") -> "LogGraph":
+        new_log_graph = LogGraph()
+        for log_graph in log_graphs:
+            new_log_graph._graph.update(log_graph._graph)
+            new_log_graph._loc.update(log_graph._loc)
+        return new_log_graph
 
     @staticmethod
     def from_source(target_path: Path, launcher: str = "file") -> "LogGraph":
-        if not target_path.exists():
-            raise ValueError(f"{target_path=} does not exist")
         log_graph = LogGraph()
         for (
             idom_id,
             event_id,
             path,
-            package_name,
+            package,
             class_name,
             method_name,
             line_number,
             level,
             template,
-        ) in csv.reader(
-            _run_log_graph(target_path, "output", launcher=launcher),
-            delimiter=",",
-            quotechar='"',
-            quoting=csv.QUOTE_ALL,
-        ):
+        ) in _extract_log_statements(target_path, launcher=launcher):
+            event_id = int(event_id)
+            idom_id = int(idom_id) if idom_id else None
             log_graph._graph.add_node(
-                (event := int(event_id)),
-                path=Path(path),
-                package=package_name.split("."),
-                class_name=class_name,
-                method_name=method_name,
+                event_id,
+                idom_id=idom_id,
+                file_name=Path(path).name,
                 line_number=int(line_number),
-                level=level,
+                level=level.upper(),
                 template=template,
             )
-            if (idom := int(idom_id)) >= 0:
-                log_graph._graph.add_edge(idom, event)
-
+            log_graph._graph.add_edge(event_id, idom_id)
         return log_graph
 
-    def find_shortest_path(self, a: int, b: int) -> list[int]:
+    @staticmethod
+    def from_patterns(
+        pattern_tree: trie,
+    ) -> "LogGraph":
+        log_graph = LogGraph()
+        stack = [*pattern_tree]
+        visited = set()
+        while len(stack) > 0:
+            i, t = stack.pop()
+            visited.add(i)
+            for j, s in t:
+                log_graph._graph.add_edge(i, j)
+        return log_graph
+
+    def shortest_path(self, a: int, b: int) -> list[int]:
         return cast(list[int], nx.shortest_path(self._graph, a, b))
 
 
-def _run_log_graph(
-    path: Path, command: str, *args: str, launcher: str = "file"
-) -> Iterator[str]:
+@dataclass(slots=True, frozen=True, eq=True)
+class LogStatement:
+    _graph: nx.DiGraph
+    event_id: int
+
+    @property
+    def idom(self) -> "LogStatement | None":
+        idom_id: int = self._graph.nodes[self.event_id]["idom_id"]
+        if idom_id is None:
+            return None
+        return self._graph.nodes[idom_id]
+
+    @property
+    def level(self) -> str:
+        return self._graph.nodes[self.event_id]["level"]
+
+    @property
+    def file_name(self) -> str:
+        return self._graph.nodes[self.event_id]["file_name"]
+
+    @property
+    def line_number(self) -> int:
+        return self._graph.nodes[self.event_id]["line_number"]
+
+    @property
+    def template(self) -> str:
+        return self._graph.nodes[self.event_id]["template"]
+
+    @property
+    def loc(self):
+        return (self.file_name, self.line_number)
+
+    @property
+    def dominators(self):
+        node = self
+        while node.idom:
+            node = node.idom
+            yield node
+
+    @property
+    def variables(self):
+        return re.findall(r"\{(\w*)\}", self.template)
+
+
+def _extract_log_statements(path: Path, launcher: str = "file") -> Iterator[list[str]]:
+    if not path.exists():
+        raise ValueError(f"{path=} does not exist")
     proc = Popen(
         [
             "java",
@@ -151,8 +159,7 @@ def _run_log_graph(
             "ltid.log_graph.Launcher",
             "--environment",
             f"{launcher}:{path}",
-            command,
-            *args,
+            "output",
         ],
         stdout=PIPE,
         stderr=PIPE,
@@ -160,7 +167,7 @@ def _run_log_graph(
     )
     assert proc.stdout is not None
     assert proc.stderr is not None
-    yield from proc.stdout
+    yield from csv.reader(proc.stdout, quoting=csv.QUOTE_ALL)
     if proc.wait() != 0:
         raise LTIDLogGraphExecutionError(
             {
@@ -174,72 +181,3 @@ def _run_log_graph(
 
 class LTIDLogGraphExecutionError(Exception):
     pass
-
-
-class LogTypeManager:
-    types: dict[int, "LogType"]
-
-    def __init__(self):
-        self.types = dict()
-
-    def make(
-        self,
-        idom: str,
-        event: str,
-        level: str,
-        template: str,
-        package: str | None = None,
-        path: str | None = None,
-        parent: str | None = None,
-        line: str | None = None,
-    ):
-        event_id = int(event)
-        logtype = LogType(
-            _manager=self,
-            idom=int(idom),
-            event=event_id,
-            level=level.upper(),
-            template=template,
-        )
-
-        self.types[event_id] = logtype
-
-        return logtype
-
-    def __getitem__(self, index: int):
-        return self.types[index]
-
-
-@dataclass(slots=True)
-class LogType:
-    _manager: LogTypeManager = field(repr=False)
-    idom: int
-    event: int
-    level: str
-    template: str
-    package: list[str] | None = None
-    path: Path | None = None
-    parent: str | None = None
-    lineno: int | None = None
-
-    @property
-    def dominators(self):
-        node = self
-        while node.idom:
-            node = self._manager[node.idom]
-            yield node
-
-    @property
-    def variables(self):
-        return _TEMPLATE_VAR_REGEX.findall(self.template)
-
-
-def gather(path: Path, launcher: str = "file") -> Iterable["LogType"]:
-    factory = LogTypeManager()
-    out = _run_log_graph(path, "gather", launcher=launcher)
-    for row in csv.reader(out, delimiter=",", quotechar='"', quoting=csv.QUOTE_ALL):
-        yield factory.make(*row)
-
-
-if __name__ == "__main__":
-    main()

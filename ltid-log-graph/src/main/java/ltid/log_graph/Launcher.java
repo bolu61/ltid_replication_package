@@ -6,7 +6,6 @@ import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.util.Optional;
 
-import ltid.log_graph.commands.Gather;
 import ltid.log_graph.commands.Injections;
 import ltid.log_graph.commands.OutputGraph;
 import picocli.CommandLine;
@@ -30,11 +29,6 @@ public class Launcher {
 
     public PrintWriter out() {
         return spec.commandLine().getOut();
-    }
-
-    @Command(name = "gather", mixinStandardHelpOptions = true)
-    void gather() {
-        Gather.execute(out(), env.model());
     }
 
     @Command(name = "injections", mixinStandardHelpOptions = true)
