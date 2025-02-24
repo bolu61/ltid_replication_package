@@ -34,7 +34,7 @@ class LogGraph:
         return LogStatement(self._graph, event_id)
 
     def __iter__(self) -> Iterator["LogStatement"]:
-        return map(self.__getitem__, self._graph.nodes)
+        return map(self.__getitem__, filter(lambda x: x >= 0, self._graph.nodes))
 
     @property
     def roots(self) -> tuple["LogStatement", ...]:

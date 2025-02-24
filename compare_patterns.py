@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+import logging
 import re
 import sys
 from argparse import ArgumentParser
@@ -9,13 +10,16 @@ from math import floor
 from pathlib import Path
 from typing import Iterator, Mapping
 
+import numpy as np
 import pandas as pd
 from ltid.toolkit.log_graph import Loc, LogGraph
 from nltk import edit_distance
 from prefixspan import make_trie
 
+logger = logging.getLogger(__name__)
+
 LOG_FORMAT_HADOOP = re.compile(
-    r"^(?P<timestamp>[\d -:,]+) .*? \((?P<file_name>\w+).java:.+?\((?P<line_number>\d+)\)\) .*?$",
+    r"^(?P<timestamp>[\d -:,]+) .*? \((?P<file_name>\w+.java):.+?\((?P<line_number>\d+)\)\) .*?$",
     flags=re.MULTILINE,
 )
 
@@ -33,16 +37,19 @@ def main(argv: list[str]):
     source_log_graph = LogGraph.from_source(config.source_tree)
     loc_to_id_map = {log.loc: log.event_id for log in source_log_graph}
 
-    @partial(lambda x: [*x()])
+    @partial(lambda x: [*map(np.array, x())])
     def dataset():
         for file in config.log_files:
-            with file.open("r") as logs:
-                timestamp, event_ids = zip(*parse_log(loc_to_id_map, logs))
-                series = pd.Series(event_ids, index=timestamp)
-                yield from series.rolling(
-                    timedelta(milliseconds=config.window_size_ms),
-                    min_periods=config.min_sequence_length,
-                )
+            try:
+                timestamp, event_ids = zip(*parse_log(loc_to_id_map, file))
+            except ValueError as e:
+                logger.debug(f"in {file=}, no logs were parsed", exc_info=e)
+                return
+            series = pd.Series(event_ids, index=timestamp).sort_index()
+            yield from series.rolling(
+                timedelta(milliseconds=config.window_size_ms),
+                min_periods=config.min_sequence_length,
+            )
 
     pattern_tree = make_trie(dataset, floor(config.min_support_ratio * len(dataset)))
 
@@ -50,21 +57,31 @@ def main(argv: list[str]):
 
     a = {*source_log_graph.paths}
     b = {*patterns_log_graph.paths}
-    
+
     matching_paths = len(a & b)
     all_paths = len(a | b)
 
-    return f"{matching_paths=} {all_paths=}"
+    print(f"{matching_paths=}", f"{all_paths=}")
 
 
 def parse_log(
-    loc_to_id_map: Mapping[Loc, int], logs: Iterable[str]
+    loc_to_id_map: Mapping[Loc, int], log_file: Path
 ) -> Iterator[tuple[datetime, int]]:
-    for log in logs:
-        if match := re.match(LOG_FORMAT_HADOOP, log):
-            dt = datetime.strptime(match.group("timestamp"), "%Y-%m-%d %H:%M:%S,%f")
-            loc = (match.group("file_name"), int(match.group("line_number")))
-            yield dt, loc_to_id_map[loc]
+    with log_file.open() as f:
+        for log in f:
+            try:
+                if not (match := re.match(LOG_FORMAT_HADOOP, log)):
+                    continue
+                if (
+                    loc := (match.group("file_name"), int(match.group("line_number")))
+                ) not in loc_to_id_map:
+                    logger.debug(f"unmatched log with {loc=}")
+                    continue
+                dt = datetime.strptime(match.group("timestamp"), "%Y-%m-%d %H:%M:%S,%f")
+                yield dt, loc_to_id_map[loc]
+            except Exception as e:
+                logger.exception(f"in {log_file=} failed to parse {log=}", exc_info=e)
+                continue
 
 
 def log_graph_path_distance(a: list[int], b: list[int]) -> int:
