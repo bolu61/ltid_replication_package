@@ -4,7 +4,7 @@
 
 External requirements needed to compute log graphs from java source: `JDK17`, `Maven`, `SrcML libraries`.
 
-Python version requirement: `python ~= 3.13`.
+Python version requirement: `python ^= 3.13`.
 
 `pip install ./ltid-toolkit`
 
