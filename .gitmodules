@@ -1,0 +1,3 @@
+[submodule "spoon"]
+	path = ltid-log-graph/ext/spoon
+	url = https://gitlab.ow2.org/spoon/spoon.git
