@@ -36,7 +36,7 @@ def main(argv: list[str]):
     argument_parser.add_argument("-v", "--verbose", type=bool, default=False)
     config = argument_parser.parse_args(argv[1:])
 
-    if config.verbase:
+    if config.verbose:
         logger.setLevel(logging.DEBUG)
     logger.info("building source log graph")
 
