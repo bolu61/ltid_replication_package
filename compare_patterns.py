@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 from itertools import islice
 import logging
+import os
 import re
 import sys
 from argparse import ArgumentParser
@@ -32,8 +33,11 @@ def main(argv: list[str]):
     argument_parser.add_argument("--max_sequence_length", type=int, default=16)
     argument_parser.add_argument("--window_size_ms", type=int, default=5)
     argument_parser.add_argument("--min_support_ratio", type=float, default=0.05)
+    argument_parser.add_argument("-v", "--verbose", type=bool, default=False)
     config = argument_parser.parse_args(argv[1:])
 
+    if config.verbase:
+        logger.setLevel(logging.DEBUG)
     logger.info("building source log graph")
 
     source_log_graph = LogGraph.from_source(config.source_tree)
