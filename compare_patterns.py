@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from ltid.toolkit.log_graph import Loc, LogGraph
 from nltk import edit_distance
-from prefixspan import make_trie
+from prefixspan import prefixspan
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def main(argv: list[str]):
 
     logger.info("parsing logs")
 
-    @partial(lambda x: [*map(np.array, x())])
+    @partial(lambda x: [*x()])
     def dataset():
         for file in config.log_files:
             try:
@@ -59,11 +59,11 @@ def main(argv: list[str]):
             for sequence in sequences:
                 if len(sequence) < config.min_sequence_length:
                     continue
-                yield sequence[:config.max_sequence_length]
+                yield sequence[:config.max_sequence_length].to_list()
 
-    logger.info(f"building trie with {len(dataset)} sequences")
+    logger.info(f"building prefixspan with {len(dataset)} sequences")
 
-    pattern_tree = make_trie(dataset, floor(config.min_support_ratio * len(dataset)))
+    pattern_tree = prefixspan(dataset, floor(config.min_support_ratio * len(dataset)))
 
     patterns_log_graph = LogGraph.from_patterns(pattern_tree)
 
