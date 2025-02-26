@@ -10,7 +10,6 @@ from functools import partial
 from math import floor
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from ltid.toolkit.log_graph import Loc, LogGraph
 from nltk import edit_distance

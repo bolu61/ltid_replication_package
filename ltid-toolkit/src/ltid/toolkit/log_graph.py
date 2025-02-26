@@ -1,5 +1,4 @@
 import csv
-from functools import partial
 import re
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
@@ -8,10 +7,9 @@ from importlib import resources
 from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import cast
-import numpy as np
 
 import networkx as nx
-from prefixspan import trie, make_trie
+from prefixspan import prefixspan
 
 LTID_LOG_GRAPH_CLASSPATH = (
     resources.files((__package__ or "__main__").split(".")[0]) / "include" / "*"
@@ -90,16 +88,15 @@ class LogGraph:
 
     @staticmethod
     def from_logs(logs: Sequence[Sequence[int]], min_support_ratio=0.05) -> "LogGraph":
-        dataset = [*map(partial(np.array, dtype=int), logs)]
-        patterns = make_trie(dataset, minsup=int(len(logs) * min_support_ratio))
+        patterns = prefixspan(logs, minsup=int(len(logs) * min_support_ratio))
         return LogGraph.from_patterns(patterns)
 
     @staticmethod
     def from_patterns(
-        pattern_tree: trie,
+        ps: prefixspan,
     ) -> "LogGraph":
         log_graph = LogGraph()
-        stack = [*pattern_tree]
+        stack = [*ps]
         visited = set()
         while len(stack) > 0:
             i, t = stack.pop()
