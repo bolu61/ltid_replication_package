@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-from itertools import islice
+from itertools import islice, product, starmap
 import logging
 import re
 import sys
@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 from collections.abc import Iterator, Mapping, Sequence
 from datetime import datetime, timedelta
 from functools import partial
-from math import floor
+from math import ceil, floor
 from pathlib import Path
 
 import pandas as pd
@@ -33,6 +33,7 @@ def main(argv: list[str]):
     argument_parser.add_argument("--max_sequence_length", type=int, default=16)
     argument_parser.add_argument("--window_size_ms", type=int, default=5)
     argument_parser.add_argument("--min_support_ratio", type=float, default=0.05)
+    argument_parser.add_argument("--max_distance_ratio", type=float, default=0.2)
     argument_parser.add_argument("-v", "--verbose", action="store_true", default=False)
     config = argument_parser.parse_args(argv[1:])
 
@@ -73,11 +74,17 @@ def main(argv: list[str]):
 
     logger.info("calculating path distance")
 
-    a = {*source_log_graph.paths}
-    b = {*patterns_log_graph.paths}
+    source_paths = {*source_log_graph.paths}
+    patterns_paths = {*patterns_log_graph.paths}
 
-    matching_paths = len(a & b)
-    all_paths = len(a | b)
+    matching_paths = 0
+    all_paths = len(source_paths | patterns_paths)
+
+    for a, b in product(source_paths, patterns_paths):
+        if log_graph_path_distance(a, b) > ceil(config.max_distance_ratio * max(len(a), len(b))):
+            continue
+        matching_paths += 1
+
 
     print(f"{matching_paths=}", f"{all_paths=}")
 
