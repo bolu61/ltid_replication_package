@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 from itertools import islice
 import logging
-import os
 import re
 import sys
 from argparse import ArgumentParser
@@ -16,6 +15,7 @@ from ltid.toolkit.log_graph import Loc, LogGraph
 from nltk import edit_distance
 from prefixspan import prefixspan
 
+logging.basicConfig()
 logger = logging.getLogger(__name__)
 
 LOG_FORMAT_HADOOP = re.compile(
@@ -33,11 +33,12 @@ def main(argv: list[str]):
     argument_parser.add_argument("--max_sequence_length", type=int, default=16)
     argument_parser.add_argument("--window_size_ms", type=int, default=5)
     argument_parser.add_argument("--min_support_ratio", type=float, default=0.05)
-    argument_parser.add_argument("-v", "--verbose", type=bool, default=False)
+    argument_parser.add_argument("-v", "--verbose", action="store_true", default=False)
     config = argument_parser.parse_args(argv[1:])
 
     if config.verbose:
         logger.setLevel(logging.DEBUG)
+
     logger.info("building source log graph")
 
     source_log_graph = LogGraph.from_source(config.source_tree)
