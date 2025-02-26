@@ -32,12 +32,15 @@ def main(argv: list[str]):
     argument_parser.add_argument("--min_sequence_length", type=int, default=2)
     argument_parser.add_argument("--max_sequence_length", type=int, default=16)
     argument_parser.add_argument("--window_size_ms", type=int, default=5)
-    argument_parser.add_argument("--min_support_ratio", type=float, default=0.05)
+    argument_parser.add_argument("--min_support", type=int, default=30)
     argument_parser.add_argument("--max_distance_ratio", type=float, default=0.2)
     argument_parser.add_argument("-v", "--verbose", action="store_true", default=False)
+    argument_parser.add_argument("--vverbose", action="store_true", default=False)
     config = argument_parser.parse_args(argv[1:])
 
     if config.verbose:
+        logger.setLevel(logging.INFO)
+    if config.vverbose:
         logger.setLevel(logging.DEBUG)
 
     logger.info("building source log graph")
@@ -68,7 +71,7 @@ def main(argv: list[str]):
 
     logger.info(f"building prefixspan with {len(dataset)} sequences")
 
-    pattern_tree = prefixspan(dataset, floor(config.min_support_ratio * len(dataset)))
+    pattern_tree = prefixspan(dataset, config.min_support)
 
     patterns_log_graph = LogGraph.from_patterns(pattern_tree)
 
