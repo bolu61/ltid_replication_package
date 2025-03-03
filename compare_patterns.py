@@ -1,17 +1,15 @@
 #! /usr/bin/env python
-from itertools import islice, product, starmap
 import logging
 import re
 import sys
 from argparse import ArgumentParser
 from collections.abc import Iterator, Mapping, Sequence
 from datetime import datetime, timedelta
-from functools import partial
-from math import ceil, floor
+from itertools import islice
 from pathlib import Path
 
 import pandas as pd
-from ltid.toolkit.log_graph import Loc, LogGraph
+from ltid.toolkit.log_graph import Loc, LogGraph, LogStatement
 from nltk import edit_distance
 from prefixspan import prefixspan
 
@@ -33,7 +31,7 @@ def main(argv: list[str]):
     argument_parser.add_argument("--max_sequence_length", type=int, default=16)
     argument_parser.add_argument("--window_size_ms", type=int, default=5)
     argument_parser.add_argument("--min_support", type=int, default=30)
-    argument_parser.add_argument("--max_distance_ratio", type=float, default=0.2)
+    argument_parser.add_argument("--min_similarity", type=float, default=0.8)
     argument_parser.add_argument("-v", "--verbose", action="store_true", default=False)
     argument_parser.add_argument("--vverbose", action="store_true", default=False)
     config = argument_parser.parse_args(argv[1:])
@@ -50,8 +48,8 @@ def main(argv: list[str]):
 
     logger.info("parsing logs")
 
-    @partial(lambda x: [*x()])
-    def dataset():
+    @lambda f: [*f()]
+    def dataset() -> Iterator[Sequence[int]]:
         for file in config.log_files:
             try:
                 timestamp, event_ids = zip(*parse_log(loc_to_id_map, file))
@@ -67,7 +65,7 @@ def main(argv: list[str]):
             for sequence in sequences:
                 if len(sequence) < config.min_sequence_length:
                     continue
-                yield sequence[:config.max_sequence_length].to_list()
+                yield sequence[: config.max_sequence_length].to_list()
 
     logger.info(f"building prefixspan with {len(dataset)} sequences")
 
@@ -81,15 +79,21 @@ def main(argv: list[str]):
     patterns_paths = {*patterns_log_graph.paths}
 
     matching_paths = 0
-    all_paths = len(source_paths | patterns_paths)
+    source_paths_len = len(source_paths)
+    patterns_paths_len = len(patterns_paths)
 
-    for a, b in product(source_paths, patterns_paths):
-        if log_graph_path_distance(a, b) > ceil(config.max_distance_ratio * max(len(a), len(b))):
-            continue
-        matching_paths += 1
+    for source_path in source_paths:
+        for patterns_path in patterns_paths:
+            if log_sequence_similarity(patterns_path, source_path) > config.min_similarity:
+                matching_paths += 1
+                break
 
-
-    print(f"{matching_paths=}", f"{all_paths=}")
+    print(
+        f"{source_paths_len}",
+        f"{patterns_paths_len}",
+        f"{matching_paths=}",
+        sep=", ",
+    )
 
 
 def parse_log(
@@ -112,11 +116,18 @@ def parse_log(
                 continue
 
 
-def log_graph_path_distance(a: Sequence[int], b: Sequence[int]) -> int:
+def log_sequence_similarity(
+    a: Sequence[LogStatement], b: Sequence[LogStatement]
+) -> float:
     """calculate cyclic edit distance between two paths, without substitution"""
+    a_id = [ls.event_id for ls in a]
+    b_id = [ls.event_id for ls in b]
+
+    # handle cyclic patterns by repeating the longest sequence
     if len(a) < len(b):
         a, b = b, a
-    return edit_distance([*a, *a], b, substitution_cost=2) - len(a)
+    d = edit_distance(a_id * 2, b_id, substitution_cost=2) - len(a)
+    return 1 - d / (len(a) + len(b))
 
 
 if __name__ == "__main__":
