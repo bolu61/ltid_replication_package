@@ -75,8 +75,8 @@ def main(argv: list[str]):
 
     logger.info("calculating path distance")
 
-    source_paths = {*source_log_graph.paths}
-    patterns_paths = {*patterns_log_graph.paths}
+    source_paths = {p for p in source_log_graph.paths if len(p) >= 2}
+    patterns_paths = {p for p in patterns_log_graph.paths if len(p) >= 2}
 
     matching_paths = 0
     source_paths_len = len(source_paths)
