@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from functools import reduce
 import logging
 import pickle
 import re
@@ -29,8 +30,8 @@ def main(argv: list[str]):
     argument_parser.add_argument("--max_dataset_size", type=int, default=-1)
     argument_parser.add_argument("--min_sequence_length", type=int, default=2)
     argument_parser.add_argument("--max_sequence_length", type=int, default=16)
-    argument_parser.add_argument("--window_size_ms", type=int, default=5)
-    argument_parser.add_argument("--min_support", type=int, default=30)
+    argument_parser.add_argument("--window_size_ms", type=int, default=16)
+    argument_parser.add_argument("--min_support", type=int, default=16)
     argument_parser.add_argument("-v", "--verbose", action="store_true", default=False)
     argument_parser.add_argument("--vverbose", action="store_true", default=False)
     config = argument_parser.parse_args(argv[1:])
@@ -39,7 +40,6 @@ def main(argv: list[str]):
         logger.setLevel(logging.INFO)
     if config.vverbose:
         logger.setLevel(logging.DEBUG)
-
 
     with open(config.log_files_tree / "source_log_graph.pkl", "rb") as fp:
         source_log_graph = pickle.load(fp)
@@ -72,8 +72,12 @@ def main(argv: list[str]):
 
     patterns_log_graph = LogGraph.from_patterns(pattern_tree)
 
+    logger.info(f"built {str(patterns_log_graph._graph)}")
+
     with open(config.log_files_tree / "patterns_log_graph.pkl", "wb") as fp:
         pickle.dump(patterns_log_graph, fp)
+
+    logger.info(f"written output to file {fp.name}")
 
 
 def parse_log(

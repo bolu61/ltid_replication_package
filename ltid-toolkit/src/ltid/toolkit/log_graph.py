@@ -1,6 +1,6 @@
 import csv
 import re
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from importlib import resources
@@ -32,24 +32,46 @@ class LogGraph:
         return LogStatement(self._graph, event_id)
 
     def __iter__(self) -> Iterator["LogStatement"]:
-        return map(self.__getitem__, filter(lambda x: x >= 0, self._graph.nodes))
+        for n in self._graph.nodes:
+            yield self[n]
+
+    def succ(self, event_id: int):
+        if event_id == -1:
+            return self.roots
+        return self._graph.predecessors(event_id)
+
+    def idom(self, event_id: int) -> int | None:
+        try:
+            return next(self._graph.successors(event_id))
+        except StopIteration:
+            return None
 
     @property
-    def roots(self) -> tuple["LogStatement", ...]:
-        return tuple(self[n] for n, d in self._graph.in_degree() if d == 0)
+    def roots(self) -> Iterator[int]:
+        for n, d in self._graph.out_degree():
+            if d > 0:
+                continue
+            yield n
 
     @property
-    def leafs(self) -> tuple["LogStatement", ...]:
-        return tuple(self[n] for n, d in self._graph.out_degree() if d == 0)
+    def leafs(self) -> Iterator[int]:
+        for n, d in self._graph.in_degree():
+            if d > 0:
+                continue
+            yield n
 
     @property
-    def paths(self) -> Iterator[tuple["LogStatement", ...]]:
+    def paths(self) -> Iterator[list[int]]:
+        def rec(node, path):
+            path = path + [node]
+            if self._graph.in_degree(node) == 0 or node in path[:-1]:
+                yield path
+                return
+            for child in self._graph.predecessors(node):
+                yield from rec(child, path)
+
         for root in self.roots:
-            for leaf in self.leafs:
-                for path in nx.all_simple_paths(
-                    self._graph, root.event_id, leaf.event_id
-                ):
-                    yield tuple(self[n] for n in path)
+            yield from rec(root, [])
 
     @staticmethod
     def union(*log_graphs: "LogGraph") -> "LogGraph":
@@ -74,7 +96,9 @@ class LogGraph:
             template,
         ) in _extract_log_statements(target_path, launcher=launcher):
             event_id = int(event_id)
-            idom_id = int(idom_id) if idom_id else None
+            idom_id = int(idom_id)
+            if idom_id < 0:
+                idom_id = None
             log_graph._graph.add_node(
                 event_id,
                 idom_id=idom_id,
@@ -83,13 +107,9 @@ class LogGraph:
                 level=level.upper(),
                 template=template,
             )
-            log_graph._graph.add_edge(event_id, idom_id)
+            if idom_id is not None:
+                log_graph._graph.add_edge(event_id, idom_id)
         return log_graph
-
-    @staticmethod
-    def from_logs(logs: Sequence[Sequence[int]], min_support_ratio=0.05) -> "LogGraph":
-        patterns = prefixspan(logs, minsup=int(len(logs) * min_support_ratio))
-        return LogGraph.from_patterns(patterns)
 
     @staticmethod
     def from_patterns(
@@ -102,7 +122,8 @@ class LogGraph:
             i, t = stack.pop()
             visited.add(i)
             for j, s in t:
-                log_graph._graph.add_edge(i, j)
+                log_graph._graph.add_edge(j, i)
+                stack.append((j, s))
         return log_graph
 
     def shortest_path(self, a: int, b: int) -> list[int]:
