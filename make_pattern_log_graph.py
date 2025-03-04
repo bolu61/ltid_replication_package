@@ -25,8 +25,12 @@ LOG_FORMAT_HADOOP = re.compile(
 
 def main(argv: list[str]):
     argument_parser = ArgumentParser()
-    argument_parser.add_argument("data_path", type=Path)
-    argument_parser.add_argument("--min_similarity", type=float, default=0.8)
+    argument_parser.add_argument("log_files_tree", type=Path)
+    argument_parser.add_argument("--max_dataset_size", type=int, default=-1)
+    argument_parser.add_argument("--min_sequence_length", type=int, default=2)
+    argument_parser.add_argument("--max_sequence_length", type=int, default=16)
+    argument_parser.add_argument("--window_size_ms", type=int, default=5)
+    argument_parser.add_argument("--min_support", type=int, default=30)
     argument_parser.add_argument("-v", "--verbose", action="store_true", default=False)
     argument_parser.add_argument("--vverbose", action="store_true", default=False)
     config = argument_parser.parse_args(argv[1:])
@@ -36,31 +40,40 @@ def main(argv: list[str]):
     if config.vverbose:
         logger.setLevel(logging.DEBUG)
 
-    with open(config.data_path / "source_log_graph.pkl", "rb") as fp:
+
+    with open(config.log_files_tree / "source_log_graph.pkl", "rb") as fp:
         source_log_graph = pickle.load(fp)
+    loc_to_id_map = {log.loc: log.event_id for log in source_log_graph}
 
-    with open(config.data_path / "patterns_log_graph.pkl", "rb") as fp:
-        patterns_log_graph = pickle.load(fp)
+    logger.info("parsing logs")
 
-    source_paths = {p for p in source_log_graph.paths if len(p) >= 2}
-    patterns_paths = {p for p in patterns_log_graph.paths if len(p) >= 2}
+    @lambda f: [*f()]
+    def dataset() -> Iterator[Sequence[int]]:
+        for file in config.log_files_tree.glob("**/*.log"):
+            try:
+                timestamp, event_ids = zip(*parse_log(loc_to_id_map, file))
+            except ValueError as e:
+                logger.debug(f"in {file=}, no logs were parsed", exc_info=e)
+                return
+            series = pd.Series(event_ids, index=timestamp).sort_index()
+            sequences = series.rolling(
+                timedelta(milliseconds=config.window_size_ms),
+            )
+            if config.max_dataset_size > 0:
+                sequences = islice(sequences, config.max_dataset_size)
+            for sequence in sequences:
+                if len(sequence) < config.min_sequence_length:
+                    continue
+                yield sequence[: config.max_sequence_length].to_list()
 
-    matching_paths = 0
-    source_paths_len = len(source_paths)
-    patterns_paths_len = len(patterns_paths)
+    logger.info(f"building prefixspan with {len(dataset)} sequences")
 
-    for source_path in source_paths:
-        for patterns_path in patterns_paths:
-            if log_sequence_similarity(patterns_path, source_path) > config.min_similarity:
-                matching_paths += 1
-                break
+    pattern_tree = prefixspan(dataset, config.min_support)
 
-    print(
-        f"{source_paths_len}",
-        f"{patterns_paths_len}",
-        f"{matching_paths=}",
-        sep=", ",
-    )
+    patterns_log_graph = LogGraph.from_patterns(pattern_tree)
+
+    with open(config.log_files_tree / "patterns_log_graph.pkl", "wb") as fp:
+        pickle.dump(patterns_log_graph, fp)
 
 
 def parse_log(
