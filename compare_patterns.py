@@ -5,14 +5,14 @@ import re
 import sys
 from argparse import ArgumentParser
 from collections import deque
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from datetime import datetime, timedelta
 from itertools import islice
 from pathlib import Path
 
+from ltid.toolkit.log_statement import LogStatement
 import pandas as pd
 from ltid.toolkit.log_graph import Loc, LogGraph
-from nltk import edit_distance
 from prefixspan import prefixspan
 
 logging.basicConfig()
@@ -106,11 +106,11 @@ def parse_log(
                 continue
 
 
-def match(t: prefixspan, seq: list[int], d: int) -> int | None:
+def match(t: prefixspan, seq: list[LogStatement], d: int) -> int | None:
     k = 0
     for s in seq:
         for n, t, j in beam(t, d - k):
-            if n == s:
+            if n == s.event_id:
                 break
         else:
             return None

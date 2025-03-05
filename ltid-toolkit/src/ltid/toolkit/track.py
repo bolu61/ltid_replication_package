@@ -3,15 +3,16 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Iterator
 
+from lxml import etree
 from pygit2 import (
     Commit,
     Diff,
 )
 from pygit2.enums import DiffOption, SortMode
 from pygit2.repository import Repository
+from pylibsrcml.srcml import srcml_archive, srcml_unit
 
-from .parse import Parser
-from .query import extractid, extractlog
+from .query import extract_id, extract_log
 
 WALK_ORDER = SortMode.REVERSE | SortMode.TOPOLOGICAL | SortMode.TIME
 
@@ -28,14 +29,14 @@ def walk(repository: Repository) -> Iterator[Commit]:
         yield commit
 
 
-class changetype(Enum):
+class ChangeType(Enum):
     OLD = "-"
     NEW = "+"
     REV = "~"
 
 
 @dataclass(slots=True)
-class difftrack:
+class DiffTrack:
     commit: str
     timestamp: int
     parents: int = 0
@@ -47,20 +48,43 @@ class difftrack:
     numrevid: int = 0
 
     @classmethod
-    def fromcommit(cls, commit: Commit) -> "difftrack":
+    def fromcommit(cls, commit: Commit) -> "DiffTrack":
         return cls(str(commit.id), commit.commit_time)
 
 
-class difftracker:
-    _repository: Repository
-    _parser: Parser
+class SourceParser:
+    _archive: srcml_archive
+    _xmlparser: etree.XMLParser
 
-    def __init__(self, repository: Repository, parser: Parser):
+    def __init__(self, language: str):
+        self._archive = srcml_archive()
+        self._archive.set_language(language)
+
+        self._xmlparser = etree.XMLParser(
+            huge_tree=True,
+            ns_clean=True,
+            recover=True,
+            encoding="utf-8",
+        )
+
+    def parsestring(self, code: str):
+        unit = srcml_unit(self._archive)
+        unit.parse_memory(code)
+
+        srctree = unit.get_srcml()
+        return etree.fromstring(srctree, parser=self._xmlparser)
+
+
+class DiffTracker:
+    _repository: Repository
+    _parser: SourceParser
+
+    def __init__(self, repository: Repository, parser: SourceParser):
         self._repository = repository
         self._parser = parser
 
-    def track(self, commit: Commit) -> difftrack:
-        track = difftrack.fromcommit(commit)
+    def track(self, commit: Commit) -> DiffTrack:
+        track = DiffTrack.fromcommit(commit)
         for parent in commit.parents:
             diff = self._repository.diff(
                 commit.id, parent.id, flags=DIFF_FLAGS, context_lines=4
@@ -115,11 +139,11 @@ class difftracker:
             if count == 0:
                 if changetype in changes:
                     root = self._parser.parsestring(content)
-                    for stmt in extractlog(root):
+                    for stmt in extract_log(root):
                         if any(c != changetype for c in changes):
-                            out.append(("~", len(list(extractid(stmt))) != 0))
+                            out.append(("~", len(list(extract_id(stmt))) != 0))
                         else:
-                            out.append((changetype, len(list(extractid(stmt))) != 0))
+                            out.append((changetype, len(list(extract_id(stmt))) != 0))
                 content = ""
                 changes = ""
             i += 1

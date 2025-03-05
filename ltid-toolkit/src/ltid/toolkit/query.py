@@ -4,18 +4,18 @@ from importlib import resources
 from lxml import etree
 
 ns = {"src": "http://www.srcML.org/srcML/src"}
-queryvars = etree.XPath("//src:name/text()", namespaces=ns)
-islog = etree.RelaxNG(
-    etree.parse(
-        str(resources.files() / "logpattern.rng"), parser=None
-    )
+
+query_variables = etree.XPath("//src:name/text()", namespaces=ns)
+
+is_logging_statement = etree.RelaxNG(
+    etree.parse(str(resources.files() / "logpattern.rng"), parser=None)
 )
 
 
-def extractlog(root):
+def extract_log(root):
     """find first logging statement"""
     for call in root.iter(r"{*}call"):
-        if islog(call):
+        if is_logging_statement(call):
             yield call
 
 
@@ -33,7 +33,7 @@ ID_HEURISTICS = [
 ]
 
 
-def isid(variable: str):
+def is_id(variable: str):
     for word in _WORD.findall(variable):
         for heuristic in ID_HEURISTICS:
             if word.lower().endswith(heuristic):
@@ -41,7 +41,7 @@ def isid(variable: str):
     return False
 
 
-def extractid(log):
-    for var in queryvars(log):
-        if isid(var):
+def extract_id(log):
+    for var in query_variables(log):
+        if is_id(var):
             yield var
