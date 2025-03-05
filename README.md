@@ -17,10 +17,6 @@ from np.typing import ArrayLike
 
 # Compute log graph from java source code:
 graph_a = LogGraph.from_source("/path/to/java/source/files")
-
-# Alternatively, from a series of sequences of log event IDs:
-logs: list[list[int]] = ...
-graph_b = LogGraph.from_logs(logs)
 ```
 
 ## Project Structure
@@ -28,8 +24,8 @@ graph_b = LogGraph.from_logs(logs)
 ```sh
 ltid_replication_package
 ├── README.md
-├── ltid-log-graph (Java source log graph generator implementation)
+├── experiments (Scripts and experiments)
+├── ltid-log-graph (Java source log graph generator implementation package)
 ├── ltid-toolkit (Toolkit/main package)
-├── requirements.txt (Dependencies for scripts/experiments)
-└── *.py (Scripts/experiments)
+└── requirements.txt (Dependencies for scripts and experiments)
 ```
