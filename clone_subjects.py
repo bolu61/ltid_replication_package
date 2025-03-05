@@ -1,11 +1,11 @@
+import traceback
 from argparse import ArgumentParser
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import cast
 
 from pygit2 import clone_repository
-from pygit2.callbacks import RemoteCallbacks
-from pygit2.remotes import TransferProgress
-from tqdm import tqdm
 
 SUBJECTS = [
     ("https://github.com/apache/hadoop", "c835adb3a8d3106493c5b10240593a9693683e5b"),
@@ -37,34 +37,29 @@ def main():
     argument_parser.add_argument("--path", type=Path, default=Path.cwd())
     args = argument_parser.parse_args()
 
+    cast(Path, args.path).mkdir(parents=True, exist_ok=True)
     with ThreadPoolExecutor() as executor:
-        for url, ref in SUBJECTS:
-            executor.submit(clone, url, args.path, ref)
+        for url, commit in SUBJECTS:
+            executor.submit(clone, url, args.path, commit)
 
 
+def with_exception[**T, S](f: Callable[T, S]):
+    def g(*args: T.args, **kwargs: T.kwargs):
+        try:
+            return f(*args, **kwargs)
+        except Exception as e:
+            traceback.print_exception(e)
+
+    return g
+
+
+@with_exception
 def clone(url: str, path: Path, ref: str):
     name = url.split("/")[-1]
-    with tqdm(desc=f"cloning {name}", leave=False) as pbar:
-        repo = clone_repository(
-            url=url,
-            path=str(path / name),
-            callbacks=_RemoteCloneTQDMCallback(pbar),
-        )
-        repo.checkout(ref)
+    repo = clone_repository(url=url, path=str(path / name))
+    repo.checkout_tree(ref)
+    print(repo.path)
 
 
-class _RemoteCloneTQDMCallback(RemoteCallbacks):
-    pbar: tqdm
-
-    def __init__(self, pbar: tqdm):
-        self.pbar = pbar
-        self.total = 0
-        self.current = 0
-
-    def transfer_progress(self, stats: TransferProgress):
-        if self.total != stats.total_objects:
-            self.pbar.total = stats.total_objects
-            self.total = self.pbar.total
-            self.pbar.refresh()
-        self.pbar.update(stats.indexed_objects - self.current)
-        self.current = stats.indexed_objects
+if __name__ == "__main__":
+    main()

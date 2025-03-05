@@ -1,18 +1,22 @@
 #! /usr/bin/env python
+import json
 import logging
 import pickle
 import re
 import sys
-from argparse import ArgumentParser
+import traceback
+from argparse import ArgumentParser, Namespace
 from collections import deque
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from itertools import islice
 from pathlib import Path
+from typing import cast
 
-from ltid.toolkit.log_statement import LogStatement
 import pandas as pd
 from ltid.toolkit.log_graph import Loc, LogGraph
+from ltid.toolkit.log_statement import LogStatement
 from prefixspan import prefixspan
 
 logging.basicConfig()
@@ -26,7 +30,7 @@ LOG_FORMAT_HADOOP = re.compile(
 
 def main(argv: list[str]):
     argument_parser = ArgumentParser()
-    argument_parser.add_argument("data_path", type=Path)
+    argument_parser.add_argument("--path", type=Path, default=Path.cwd())
     argument_parser.add_argument("--max_dataset_size", type=int, default=-1)
     argument_parser.add_argument("--min_sequence_length", type=int, default=2)
     argument_parser.add_argument("--max_sequence_length", type=int, default=16)
@@ -42,14 +46,30 @@ def main(argv: list[str]):
     if config.vverbose:
         logger.setLevel(logging.DEBUG)
 
-    with open(config.data_path / "source_log_graph.pkl", "rb") as fp:
-        log_graph: LogGraph = pickle.load(fp)
+    with ThreadPoolExecutor() as executor:
+        for path in cast(Path, config.path).iterdir():
+            executor.submit(write_config, path, config)
 
+
+def with_exception[**T, S](f: Callable[T, S]):
+    def g(*args: T.args, **kwargs: T.kwargs):
+        try:
+            return f(*args, **kwargs)
+        except Exception as e:
+            traceback.print_exception(e)
+
+    return g
+
+
+@with_exception
+def write_config(project_path: Path, config: Namespace):
+    with open(project_path / "target" / "log_graph.pkl", "rb") as fp:
+        log_graph: LogGraph = pickle.load(fp)
     loc_to_id_map = {log.loc: log.event_id for log in log_graph}
 
     logger.info(f"loaded log_graph {log_graph._graph}")
 
-    sequences = [*dataset(config, loc_to_id_map)]
+    sequences = [*dataset(config, project_path, loc_to_id_map)]
 
     trie = prefixspan(sequences, config.min_support)
     logger.info("built patterns")
@@ -62,12 +82,16 @@ def main(argv: list[str]):
         if m is None:
             continue
         matching_paths += 1
-    print(f"{matching_paths=}")
+
+    data = {"matching_paths_count": matching_paths}
+    with open(project_path / "target" / "ltid_comparison.json", "w") as fp:
+        json.dump(data, fp)
+        print(fp.name)
 
 
-def dataset(config, loc_to_id_map) -> Iterator[Sequence[int]]:
-    logger.info(f"loading logs from {config.data_path}")
-    for file in config.data_path.glob("**/*.log"):
+def dataset(config, path, loc_to_id_map) -> Iterator[Sequence[int]]:
+    logger.info(f"loading logs from {path}")
+    for file in path.glob("**/*-output.txt"):
         try:
             timestamp, event_ids = zip(*parse_log(loc_to_id_map, file))
         except ValueError as e:
@@ -83,7 +107,7 @@ def dataset(config, loc_to_id_map) -> Iterator[Sequence[int]]:
             if len(sequence) < config.min_sequence_length:
                 continue
             yield sequence[: config.max_sequence_length].to_list()
-    logger.info(f"loaded logs from {config.data_path}")
+    logger.info(f"loaded logs from {path}")
 
 
 def parse_log(

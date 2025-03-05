@@ -73,16 +73,16 @@ class LogGraph:
 
     @property
     def paths(self) -> Generator[list[LogStatement]]:
-        def rec(node: LogStatement, path: list[LogStatement]) -> Generator[list[LogStatement]]:
-            path = path + [node]
-            if self._graph.in_degree(node.event_id) == 0:
+        def rec(node: int, path: list[LogStatement]) -> Generator[list[LogStatement]]:
+            path = path + [self.get_statement(node)]
+            if self._graph.in_degree(node) == 0:
                 yield path
                 return
             for child in self._graph.predecessors(node):
                 yield from rec(child, path)
 
         for root in self.roots:
-            yield from rec(root, [])
+            yield from rec(root.event_id, [])
 
 
 LTID_LOG_GRAPH_CLASSPATH = (

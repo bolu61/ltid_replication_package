@@ -1,7 +1,9 @@
-# !/usr/bin/env python3
+#! /usr/bin/env python
 import json
 import pickle
+import traceback
 from argparse import ArgumentParser
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -21,6 +23,16 @@ def main():
             executor.submit(write_stats, path)
 
 
+def with_exception[**T, S](f: Callable[T, S]):
+    def g(*args: T.args, **kwargs: T.kwargs):
+        try:
+            return f(*args, **kwargs)
+        except Exception as e:
+            traceback.print_exception(e)
+
+    return g
+
+
 @dataclass
 class LTIDStats:
     stmt_count: int
@@ -28,9 +40,10 @@ class LTIDStats:
     stmt_w_injection_count: int
 
 
+@with_exception
 def write_stats(path: Path):
     stats = get_stats(path)
-    with open(path / "target" / "ltid_stats.json") as fp:
+    with open(path / "target" / "ltid_log_stmts_count.json", "w") as fp:
         json.dump(asdict(stats), fp)
         print(fp.name)
 
